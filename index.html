@@ -46,6 +46,23 @@
         </div>
 
         <div class="card">
+  <label>Photo principale</label>
+  <div class="row">
+    <!-- Fichier "caméra" (non visible) -->
+    <input type="file" id="photo_main_camera" accept="image/*" capture="environment" style="display:none">
+    <!-- Fichier "galerie" (non visible) -->
+    <input type="file" id="photo_main_gallery" accept="image/*" style="display:none">
+    <!-- Champ cible (reste inchangé pour ton code existant) -->
+    <input type="file" name="photo_principale" id="photo_principale" accept="image/*" style="display:none">
+
+    <button type="button" class="btn" id="btnPhotoMainCam">📷 Prendre photo</button>
+    <button type="button" class="btn secondary" id="btnPhotoMainGal">🖼️ Depuis la galerie</button>
+    <span id="photo_main_filename" style="margin-left:8px;color:var(--muted)"></span>
+  </div>
+</div>
+
+
+        <div class="card">
           <label>Décoder un code-barres (photo)</label>
           <div class="row">
             <input type="file" accept="image/*" id="cartons_barcode_file">
@@ -56,6 +73,21 @@
 
         <div class="card">
           <h3>Contrôles</h3>
+<div class="card">
+  <label>Photo code barre</label>
+  <div class="row">
+    <!-- Fichier "caméra" (non visible) -->
+    <input type="file" id="photo_main_camera" accept="image/*" capture="environment" style="display:none">
+    <!-- Fichier "galerie" (non visible) -->
+    <input type="file" id="photo_main_gallery" accept="image/*" style="display:none">
+    <!-- Champ cible (reste inchangé pour ton code existant) -->
+    <input type="file" name="photo_principale" id="photo_principale" accept="image/*" style="display:none">
+
+    <button type="button" class="btn" id="btnPhotoMainCam">📷 Prendre photo</button>
+    <button type="button" class="btn secondary" id="btnPhotoMainGal">🖼️ Depuis la galerie</button>
+    <span id="photo_main_filename" style="margin-left:8px;color:var(--muted)"></span>
+  </div>
+</div>
 
           <!-- 1 -->
           <div class="card">
