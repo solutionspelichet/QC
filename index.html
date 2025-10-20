@@ -1,47 +1,34 @@
-<!doctype html>
-<html lang="fr">
-
-
-  <head>
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#FF6A00" />
-  <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
-<link rel="apple-touch-icon" href="icon-180.png">
-
-  <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <title>Pelichet QC</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+
   <link rel="stylesheet" href="style.css">
 </head>
+<body>
 
-
-  
-
-<body class="dark">
-<header class="app-header">
-  <div class="brand">
-    <img src="logo-pelichet.svg" alt="Pelichet QC" class="logo">
-  </div>
-  <nav class="tabs">
-    <button class="tab active" data-tab="cartons">Cartons</button>
-    <button class="tab" data-tab="palettes-avant">Palettes Avant</button>
-    <button class="tab" data-tab="palettes-destination">Palettes Destination</button>
-    <button class="tab" data-tab="kpi">KPI</button>
-  </nav>
-  <div class="actions">
-    <button id="toggleTheme" class="icon-btn" title="Thème clair/sombre" aria-label="Basculer le thème">🌓</button>
-  </div>
-</header>
-
-
-<nav class="tabs">
-  <button class="tab active" data-tab="cartons">Cartons</button>
-  <button class="tab" data-tab="palettes_avant">Palettes (Avant)</button>
-  <button class="tab" data-tab="palettes_dest">Palettes (Destination)</button>
-  <button class="tab" data-tab="kpi">KPI</button>
-</nav>
+  <header class="app-header">
+    <div class="brand">
+      <img src="logo-pelichet.svg" alt="Pelichet QC" class="logo">
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="cartons">Cartons</button>
+      <button class="tab" data-tab="palettes-avant">Palettes Avant</button>
+      <button class="tab" data-tab="palettes-destination">Palettes Destination</button>
+      <button class="tab" data-tab="kpi">KPI</button>
+    </nav>
+    <div class="actions">
+      <button id="toggleTheme" class="icon-btn" title="Thème clair/sombre">🌓</button>
+    </div>
+  </header>
 
 <main>
   <!-- Cartons -->
