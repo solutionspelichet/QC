@@ -10,13 +10,10 @@ fetch('config.json')
   .then(c => { CONFIG = c; })
   .catch(() => { /* laisser CONFIG par défaut */ });
 
-/* ---------- Helpers DOM ---------- */
-
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
 /* ---------- Tabs ---------- */
-
 function initTabs() {
   qsa('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -30,7 +27,6 @@ function initTabs() {
 }
 
 /* ---------- Thème ---------- */
-
 function initThemeToggle() {
   const toggle = qs('#toggleTheme');
   if (!toggle) return;
@@ -39,8 +35,7 @@ function initThemeToggle() {
   });
 }
 
-/* ---------- Affichage/Masquage champs KO ---------- */
-
+/* ---------- Afficher/Masquer KO ---------- */
 function initKoBlocks() {
   qsa('.okko input[type=radio]').forEach(radio => {
     radio.addEventListener('change', () => {
@@ -52,16 +47,33 @@ function initKoBlocks() {
   });
 }
 
-/* ---------- ZXing: décodage robuste depuis une photo ---------- */
-
+/* ---------- ZXing + BarcodeDetector ---------- */
 async function decodeFileToBarcode(file) {
-  // 1) Lire le fichier en Image()
+  // 1) Décodage natif si dispo (Chrome/Android souvent)
+  if ('BarcodeDetector' in window) {
+    try {
+      const formats = ['ean_13', 'code_128', 'code_39'];
+      const bd = new window.BarcodeDetector({ formats });
+      const img = await fileToImage(file);
+      const pngDataUrl = await imageToPngDataUrl(img, 800);
+      const imgEl = await dataUrlToImage(pngDataUrl);
+      const c = document.createElement('canvas');
+      c.width = imgEl.naturalWidth || imgEl.width;
+      c.height = imgEl.naturalHeight || imgEl.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(imgEl, 0, 0, c.width, c.height);
+      const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+      if (blob) {
+        const bitmap = await createImageBitmap(blob);
+        const codes = await bd.detect(bitmap);
+        if (codes && codes[0] && codes[0].rawValue) return String(codes[0].rawValue);
+      }
+    } catch (_) { /* fallback ZXing */ }
+  }
+
+  // 2) Fallback ZXing
   const img = await fileToImage(file);
-
-  // 2) Convertir via canvas en PNG et forcer une largeur minimale (améliore la lecture)
   const pngDataUrl = await imageToPngDataUrl(img, 800);
-
-  // 3) Hints ciblés pour EAN_13 / CODE_128 / CODE_39
   const reader = new ZXingBrowser.BrowserMultiFormatReader();
   const hints = new Map();
   const formats = [
@@ -71,8 +83,6 @@ async function decodeFileToBarcode(file) {
   ];
   hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, formats);
   reader.setHints(hints);
-
-  // 4) Décoder depuis une balise Image alimentée par le PNG
   const imgPng = await dataUrlToImage(pngDataUrl);
   try {
     const res = await reader.decodeFromImage(imgPng);
@@ -88,12 +98,11 @@ function fileToImage(file) {
     img.onload = () => resolve(img);
     img.onerror = reject;
     const fr = new FileReader();
-    fr.onload = () => img.src = fr.result;        // HEIC/JPEG/PNG -> dataURL
+    fr.onload = () => img.src = fr.result;
     fr.onerror = reject;
     fr.readAsDataURL(file);
   });
 }
-
 function dataUrlToImage(dataUrl) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -102,7 +111,6 @@ function dataUrlToImage(dataUrl) {
     img.src = dataUrl;
   });
 }
-
 function imageToPngDataUrl(img, minWidth = 800) {
   return new Promise(resolve => {
     const baseW = img.naturalWidth || img.width || minWidth;
@@ -116,12 +124,11 @@ function imageToPngDataUrl(img, minWidth = 800) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, w, h);
-    resolve(c.toDataURL('image/png'));            // Conversion universelle pour ZXing
+    resolve(c.toDataURL('image/png'));
   });
 }
 
-/* ---------- Boutons "Décoder" (photo -> code-barres) ---------- */
-
+/* ---------- Boutons "Décoder" ---------- */
 function initDecodeButtons() {
   qsa('button[data-action="decode"]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -142,8 +149,7 @@ function initDecodeButtons() {
   });
 }
 
-/* ---------- Convertir un <input type=file> en {dataUrl, ext} ---------- */
-
+/* ---------- Convertir input[file] -> {dataUrl, ext} ---------- */
 async function fileToDataUrlWithExt(input) {
   if (!input || !input.files || !input.files[0]) return null;
   const file = input.files[0];
@@ -157,8 +163,7 @@ async function fileToDataUrlWithExt(input) {
   return { dataUrl, ext };
 }
 
-/* ---------- Soumission formulaires (FormData sans headers -> pas de CORS préflight) ---------- */
-
+/* ---------- Soumission formulaires ---------- */
 function initForms() {
   qsa('.qc-form').forEach(form => {
     form.addEventListener('submit', async (ev) => {
@@ -168,16 +173,13 @@ function initForms() {
       const result = qs('.result', form);
       if (result) result.textContent = '';
 
-      // Champs requis
       const date = qs('input[name="date_jour"]', form).value;
       const codeBarres = qs('input[name="code_barres"]', form).value.trim();
       if (!date || !codeBarres) { alert('Date et code-barres sont requis.'); return; }
 
-      // Photo principale (optionnelle)
       const photoMainInput = qs('input[name="photo_principale"]', form);
       const photoMain = await fileToDataUrlWithExt(photoMainInput);
 
-      // Questions selon type
       const questionsMap = {
         Cartons: ['callage_papier','intercalaires_livres','ordre_colonnes','scotch','depoussierage'],
         Palettes_Avant: ['cartons_etat','intercalaires_cartons','ordre_cartons','cerclage','stabilite'],
@@ -189,7 +191,6 @@ function initForms() {
       for (const q of questions) {
         const val = (qs(`input[name="${q}"]:checked`, form) || {}).value;
         if (!val) { alert('Veuillez répondre à toutes les questions.'); return; }
-
         let photo = null, commentaire = '';
         if (val === 'KO') {
           const fileInput = qs(`input[data-photofor="${q}"]`, form);
@@ -214,7 +215,6 @@ function initForms() {
       };
 
       try {
-        // FormData pour éviter le préflight CORS
         const fd = new FormData();
         fd.append('route', 'qc');
         fd.append('type', type);
@@ -234,8 +234,7 @@ function initForms() {
   });
 }
 
-/* ---------- KPI ---------- */
-
+/* ---------- KPI & Export ---------- */
 function initKpi() {
   const btnKpi = qs('#btnKpi');
   if (btnKpi) {
@@ -285,16 +284,14 @@ function renderKpi(kpi) {
   return html;
 }
 
-/* ---------- Service Worker (installabilité, sans offline) ---------- */
-
+/* ---------- Service Worker ---------- */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js').catch(() => { /* no-op */ });
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
   }
 }
 
 /* ---------- Démarrage ---------- */
-
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
   initThemeToggle();
