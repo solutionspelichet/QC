@@ -15,27 +15,36 @@ document.querySelectorAll('.tab').forEach(b=>{
 });
 
 // Thème
-document.getElementById('toggleTheme').addEventListener('click', ()=>{
-  document.body.classList.toggle('dark');
-});
+const toggleThemeBtn = document.getElementById('toggleTheme');
+if (toggleThemeBtn) {
+  toggleThemeBtn.addEventListener('click', ()=> document.body.classList.toggle('dark'));
+}
 
-// Afficher champs KO
+// Afficher/Masquer champs KO
 document.querySelectorAll('.okko input[type=radio]').forEach(r=>{
   r.addEventListener('change', ()=>{
     const name = r.name;
-    const val = r.value;
     const extra = document.querySelector(`.ko-extra[data-for="${name}"]`);
     if (!extra) return;
-    extra.style.display = (val === 'KO') ? 'block' : 'none';
+    extra.style.display = (r.value === 'KO') ? 'block' : 'none';
   });
 });
 
-// ZXing (décodage à partir d’une photo)
+// ZXing — décodage à partir d’une photo
 async function decodeFileToBarcode(file) {
   const img = await fileToImage(file);
-  const codeReader = new ZXingBrowser.BrowserBarcodeReader();
-  const res = await codeReader.decodeFromImageElement(img).catch(()=>null);
-  return res ? res.getText() : '';
+  // si image petite, on up-scale x2 pour aider le décodage
+  if (img.naturalWidth < 400) {
+    const scaled = await scaleImage(img, 2);
+    img.src = scaled;
+  }
+  const reader = new ZXingBrowser.BrowserMultiFormatReader();
+  try {
+    const res = await reader.decodeFromImage(img);
+    return res ? res.getText() : '';
+  } catch {
+    return '';
+  }
 }
 
 function fileToImage(file){
@@ -46,6 +55,17 @@ function fileToImage(file){
     const fr = new FileReader();
     fr.onload = ()=> img.src = fr.result;
     fr.readAsDataURL(file);
+  });
+}
+
+function scaleImage(img, factor) {
+  return new Promise((resolve) => {
+    const c = document.createElement('canvas');
+    c.width  = img.naturalWidth  * factor;
+    c.height = img.naturalHeight * factor;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    resolve(c.toDataURL('image/png'));
   });
 }
 
@@ -63,26 +83,24 @@ document.querySelectorAll('button[data-action="decode"]').forEach(btn=>{
     out.value = 'Décodage en cours…';
     const txt = await decodeFileToBarcode(input.files[0]);
     out.value = txt || '';
-    if (!txt) alert('Aucun code-barres détecté. Réessayez avec une photo plus nette.');
+    if (!txt) alert('Aucun code-barres détecté. Réessayez avec une photo plus nette / plus proche.');
   });
 });
 
-// Soumission formulaires
+// Soumission formulaires (POST en FormData pour éviter CORS préflight)
 document.querySelectorAll('.qc-form').forEach(form=>{
   form.addEventListener('submit', async (ev)=>{
     ev.preventDefault();
     const type = form.dataset.type;
     const result = form.querySelector('.result');
-    result.textContent = '';
+    if (result) result.textContent = '';
 
-    // Collecte champs
+    // Champs requis
     const date = form.querySelector('input[name="date_jour"]').value;
     const codeBarres = form.querySelector('input[name="code_barres"]').value.trim();
-    if (!date || !codeBarres) {
-      alert('Date et code-barres sont requis.');
-      return;
-    }
+    if (!date || !codeBarres) { alert('Date et code-barres sont requis.'); return; }
 
+    // Photo principale (optionnelle)
     const photoMainInput = form.querySelector('input[name="photo_principale"]');
     const photoMain = await fileToDataUrlWithExt(photoMainInput);
 
@@ -122,19 +140,20 @@ document.querySelectorAll('.qc-form').forEach(form=>{
     };
 
     try {
-      const r = await fetch(`${CONFIG.WEBAPP_BASE_URL}?route=qc&type=${encodeURIComponent(type)}`, {
-        method:'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const fd = new FormData();
+      fd.append('route', 'qc');
+      fd.append('type', type);
+      fd.append('payload', JSON.stringify(payload));
+
+      const r = await fetch(CONFIG.WEBAPP_BASE_URL, { method: 'POST', body: fd });
       const js = await r.json();
       if (!js.ok) throw new Error(js.error || 'Erreur');
-      result.textContent = '✅ Enregistrement réussi';
+
+      if (result) result.textContent = '✅ Enregistrement réussi';
       form.reset();
-      // Masquer tous les blocs KO
       form.querySelectorAll('.ko-extra').forEach(x=>x.style.display='none');
     } catch (err) {
-      result.textContent = '❌ '+ String(err.message || err);
+      if (result) result.textContent = '❌ '+ String(err.message || err);
     }
   });
 });
@@ -153,22 +172,25 @@ async function fileToDataUrlWithExt(input){
 }
 
 // KPI
-document.getElementById('btnKpi').addEventListener('click', async ()=>{
-  const from = document.getElementById('kpi_from').value;
-  const to   = document.getElementById('kpi_to').value;
-  const url = new URL(CONFIG.WEBAPP_BASE_URL);
-  url.searchParams.set('route','kpi');
-  if (from) url.searchParams.set('from', from);
-  if (to)   url.searchParams.set('to', to);
-  const box = document.getElementById('kpiResults');
-  box.textContent = 'Chargement KPI…';
-  const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
-  if (!js.ok) { box.textContent = 'Erreur KPI'; return; }
-  box.innerHTML = renderKpi(js.kpi);
-});
+const btnKpi = document.getElementById('btnKpi');
+if (btnKpi) {
+  btnKpi.addEventListener('click', async ()=>{
+    const from = document.getElementById('kpi_from').value;
+    const to   = document.getElementById('kpi_to').value;
+    const url = new URL(CONFIG.WEBAPP_BASE_URL);
+    url.searchParams.set('route','kpi');
+    if (from) url.searchParams.set('from', from);
+    if (to)   url.searchParams.set('to', to);
+    const box = document.getElementById('kpiResults');
+    if (box) box.textContent = 'Chargement KPI…';
+    const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
+    if (!js.ok) { if (box) box.textContent = 'Erreur KPI'; return; }
+    if (box) box.innerHTML = renderKpi(js.kpi);
+  });
+}
 
 function renderKpi(kpi){
-  const types = Object.keys(kpi);
+  const types = Object.keys(kpi||{});
   if (!types.length) return '<p>Aucune donnée.</p>';
   let html = '';
   for (const t of types) {
@@ -183,14 +205,22 @@ function renderKpi(kpi){
 }
 
 // Export Excel
-document.getElementById('btnExport').addEventListener('click', async ()=>{
-  const from = document.getElementById('kpi_from').value;
-  const to   = document.getElementById('kpi_to').value;
-  const url = new URL(CONFIG.WEBAPP_BASE_URL);
-  url.searchParams.set('route','export');
-  if (from) url.searchParams.set('from', from);
-  if (to)   url.searchParams.set('to', to);
-  const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
-  if (!js.ok) { alert('Export échoué'); return; }
-  window.open(js.webViewLink, '_blank');
-});
+const btnExport = document.getElementById('btnExport');
+if (btnExport) {
+  btnExport.addEventListener('click', async ()=>{
+    const from = document.getElementById('kpi_from').value;
+    const to   = document.getElementById('kpi_to').value;
+    const url = new URL(CONFIG.WEBAPP_BASE_URL);
+    url.searchParams.set('route','export');
+    if (from) url.searchParams.set('from', from);
+    if (to)   url.searchParams.set('to', to);
+    const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
+    if (!js.ok) { alert('Export échoué'); return; }
+    window.open(js.webViewLink, '_blank');
+  });
+}
+
+// Service Worker (installabilité PWA, sans offline)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+}
