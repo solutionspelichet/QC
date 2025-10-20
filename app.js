@@ -14,6 +14,22 @@ fetch('config.json')
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
+function initThemeToggle() {
+  const toggle = qs('#toggleTheme');
+  if (!toggle) return;
+  // restaurer
+  const pref = localStorage.getItem('theme');
+  if (pref === 'dark') document.body.classList.add('dark');
+  if (pref === 'light') document.body.classList.remove('dark');
+
+  toggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+  });
+}
+
+
+
 /* ---------- Tabs ---------- */
 function initTabs() {
   qsa('.tab').forEach(btn => {
