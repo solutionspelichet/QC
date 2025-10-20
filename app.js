@@ -8,8 +8,9 @@ let CONFIG = { WEBAPP_BASE_URL: '' };
 fetch('config.json')
   .then(r => r.json())
   .then(c => { CONFIG = c; })
-  .catch(() => { /* laisser CONFIG par défaut */ });
+  .catch(() => { /* laisser CONFIG par défaut si fichier absent */ });
 
+/* ---------- Helpers DOM ---------- */
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
@@ -35,7 +36,7 @@ function initThemeToggle() {
   });
 }
 
-/* ---------- Afficher/Masquer KO ---------- */
+/* ---------- Afficher/Masquer blocs KO ---------- */
 function initKoBlocks() {
   qsa('.okko input[type=radio]').forEach(radio => {
     radio.addEventListener('change', () => {
@@ -47,28 +48,32 @@ function initKoBlocks() {
   });
 }
 
-/* ---------- ZXing + BarcodeDetector ---------- */
+/* ---------- Décodage code-barres (native BarcodeDetector -> ZXing fallback) ---------- */
 async function decodeFileToBarcode(file) {
-  // 1) Décodage natif si dispo (Chrome/Android souvent)
+  // 1) Décodage natif si disponible (Chrome/Android)
   if ('BarcodeDetector' in window) {
     try {
       const formats = ['ean_13', 'code_128', 'code_39'];
       const bd = new window.BarcodeDetector({ formats });
       const img = await fileToImage(file);
-      const pngDataUrl = await imageToPngDataUrl(img, 800);
+      const pngDataUrl = await imageToPngDataUrl(img, 800); // upscale + normalisation PNG
       const imgEl = await dataUrlToImage(pngDataUrl);
+
       const c = document.createElement('canvas');
       c.width = imgEl.naturalWidth || imgEl.width;
       c.height = imgEl.naturalHeight || imgEl.height;
       const ctx = c.getContext('2d');
       ctx.drawImage(imgEl, 0, 0, c.width, c.height);
+
       const blob = await new Promise(r => c.toBlob(r, 'image/png'));
       if (blob) {
         const bitmap = await createImageBitmap(blob);
         const codes = await bd.detect(bitmap);
         if (codes && codes[0] && codes[0].rawValue) return String(codes[0].rawValue);
       }
-    } catch (_) { /* fallback ZXing */ }
+    } catch (_) {
+      // on passe au fallback ZXing
+    }
   }
 
   // 2) Fallback ZXing
@@ -98,7 +103,7 @@ function fileToImage(file) {
     img.onload = () => resolve(img);
     img.onerror = reject;
     const fr = new FileReader();
-    fr.onload = () => img.src = fr.result;
+    fr.onload = () => img.src = fr.result; // HEIC/JPEG/PNG -> dataURL
     fr.onerror = reject;
     fr.readAsDataURL(file);
   });
@@ -163,7 +168,7 @@ async function fileToDataUrlWithExt(input) {
   return { dataUrl, ext };
 }
 
-/* ---------- Soumission formulaires ---------- */
+/* ---------- Soumission formulaires (FormData sans header => pas de préflight CORS) ---------- */
 function initForms() {
   qsa('.qc-form').forEach(form => {
     form.addEventListener('submit', async (ev) => {
@@ -173,13 +178,16 @@ function initForms() {
       const result = qs('.result', form);
       if (result) result.textContent = '';
 
+      // Champs requis
       const date = qs('input[name="date_jour"]', form).value;
       const codeBarres = qs('input[name="code_barres"]', form).value.trim();
       if (!date || !codeBarres) { alert('Date et code-barres sont requis.'); return; }
 
+      // Photo principale (optionnelle)
       const photoMainInput = qs('input[name="photo_principale"]', form);
       const photoMain = await fileToDataUrlWithExt(photoMainInput);
 
+      // Questions selon type
       const questionsMap = {
         Cartons: ['callage_papier','intercalaires_livres','ordre_colonnes','scotch','depoussierage'],
         Palettes_Avant: ['cartons_etat','intercalaires_cartons','ordre_cartons','cerclage','stabilite'],
@@ -234,57 +242,148 @@ function initForms() {
   });
 }
 
-/* ---------- KPI & Export ---------- */
+/* =========================
+   KPI — synthèse + tableaux + courbes
+   ========================= */
+
+let CHART_INSTANCES = [];
+
 function initKpi() {
   const btnKpi = qs('#btnKpi');
-  if (btnKpi) {
-    btnKpi.addEventListener('click', async () => {
-      const from = qs('#kpi_from').value;
-      const to   = qs('#kpi_to').value;
-      const url = new URL(CONFIG.WEBAPP_BASE_URL);
-      url.searchParams.set('route', 'kpi');
-      if (from) url.searchParams.set('from', from);
-      if (to)   url.searchParams.set('to', to);
-      const box = qs('#kpiResults');
-      if (box) box.textContent = 'Chargement KPI…';
-      const js = await fetch(url).then(r => r.json()).catch(() => ({ ok: false }));
-      if (!js.ok) { if (box) box.textContent = 'Erreur KPI'; return; }
-      if (box) box.innerHTML = renderKpi(js.kpi);
-    });
-  }
-
+  if (btnKpi) btnKpi.addEventListener('click', loadAndRenderKpi);
   const btnExport = qs('#btnExport');
-  if (btnExport) {
-    btnExport.addEventListener('click', async () => {
-      const from = qs('#kpi_from').value;
-      const to   = qs('#kpi_to').value;
-      const url = new URL(CONFIG.WEBAPP_BASE_URL);
-      url.searchParams.set('route', 'export');
-      if (from) url.searchParams.set('from', from);
-      if (to)   url.searchParams.set('to', to);
-      const js = await fetch(url).then(r => r.json()).catch(() => ({ ok: false }));
+  if (btnExport) btnExport.addEventListener('click', doExportXlsx);
+}
+
+async function loadAndRenderKpi() {
+  const from = qs('#kpi_from').value;
+  const to   = qs('#kpi_to').value;
+
+  const url = new URL(CONFIG.WEBAPP_BASE_URL);
+  url.searchParams.set('route', 'kpi');
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+
+  const box = qs('#kpiResults');
+  if (box) box.textContent = 'Chargement KPI…';
+
+  const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
+  if (!js.ok) { if (box) box.textContent = 'Erreur KPI'; return; }
+
+  renderKpiBlocks(js.kpi);
+}
+
+function doExportXlsx() {
+  const from = qs('#kpi_from').value;
+  const to   = qs('#kpi_to').value;
+  const url = new URL(CONFIG.WEBAPP_BASE_URL);
+  url.searchParams.set('route', 'export');
+  if (from) url.searchParams.set('from', from);
+  if (to)   url.searchParams.set('to', to);
+  fetch(url)
+    .then(r=>r.json())
+    .then(js=>{
       if (!js.ok) { alert('Export échoué'); return; }
       window.open(js.webViewLink, '_blank');
-    });
-  }
+    })
+    .catch(()=> alert('Export échoué'));
 }
 
-function renderKpi(kpi) {
+function renderKpiBlocks(kpi) {
+  // Détruire les anciens charts
+  CHART_INSTANCES.forEach(ch=>{ try{ ch.destroy(); }catch(_){} });
+  CHART_INSTANCES = [];
+
+  const wrap = qs('#kpiResults');
+  wrap.innerHTML = '';
+
   const types = Object.keys(kpi || {});
-  if (!types.length) return '<p>Aucune donnée.</p>';
-  let html = '';
-  for (const t of types) {
-    html += `<h3>${t}</h3><table class="kpi"><thead><tr><th>Date</th><th>Total</th><th>KO</th><th>Taux KO %</th><th>Par question</th></tr></thead><tbody>`;
-    for (const row of kpi[t]) {
-      const qsHtml = Object.entries(row.par_question || {}).map(([k, v]) => `${k}: ${v}%`).join('<br>');
-      html += `<tr><td>${row.date}</td><td>${row.total}</td><td>${row.ko}</td><td>${row.taux_ko_pct}</td><td>${qsHtml}</td></tr>`;
-    }
-    html += '</tbody></table>';
+  if (!types.length) {
+    wrap.innerHTML = '<p>Aucune donnée.</p>';
+    return;
   }
-  return html;
+
+  types.forEach(typeName => {
+    const obj = kpi[typeName] || {};
+    const sum = obj.summary || {};
+    const perQ = obj.per_question || {};
+    const series = obj.by_date || [];
+
+    // --- Carte synthèse
+    const cardSummary = document.createElement('div');
+    cardSummary.className = 'kpi-card';
+    cardSummary.innerHTML = `
+      <h3>${typeName} — Synthèse</h3>
+      <div class="kpi-legend">
+        <strong>Contrôles</strong> : ${sum.total_entries || 0}
+        &nbsp;|&nbsp; <strong>Entrées avec ≥1 KO</strong> : ${sum.entries_with_any_KO || 0} (${sum.entries_with_any_KO_pct || 0}%)
+        &nbsp;|&nbsp; <strong>Total KO (tous points)</strong> : ${sum.total_KO_items || 0}
+        &nbsp;|&nbsp; <strong>KO moyens / entrée</strong> : ${sum.avg_KO_per_entry || 0}
+      </div>
+    `;
+    wrap.appendChild(cardSummary);
+
+    // --- Tableau OK/KO par point
+    const cardTable = document.createElement('div');
+    cardTable.className = 'kpi-card';
+    const rows = Object.keys(perQ).map(q=>{
+      const it = perQ[q] || {OK:0, KO:0, ko_pct:0};
+      return `<tr><td>${q}</td><td>${it.OK}</td><td>${it.KO}</td><td>${it.ko_pct}%</td></tr>`;
+    }).join('');
+    cardTable.innerHTML = `
+      <h3>${typeName} — Par point (OK vs KO)</h3>
+      <table class="kpi">
+        <thead><tr><th>Point</th><th>OK</th><th>KO</th><th>% KO</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="4">Aucune donnée</td></tr>'}</tbody>
+      </table>
+    `;
+    wrap.appendChild(cardTable);
+
+    // --- Courbe % KO par jour
+    const labels = series.map(s=>s.date);
+    const taux   = series.map(s=>s.taux_ko_pct);
+    const cardLine = document.createElement('div');
+    cardLine.className = 'kpi-card';
+    cardLine.innerHTML = `
+      <h3>${typeName} — Taux KO % par jour</h3>
+      <canvas height="220"></canvas>
+    `;
+    wrap.appendChild(cardLine);
+
+    if (typeof Chart !== 'undefined') {
+      const ctx = cardLine.querySelector('canvas').getContext('2d');
+      CHART_INSTANCES.push(new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label:'Taux KO %', data:taux, tension:0.2, fill:false }] },
+        options: baseChartOptions('Pourcentage', '%')
+      }));
+    } else {
+      // fallback texte si Chart.js pas chargé
+      cardLine.innerHTML += `<div style="margin-top:8px;color:#bbb">Installe Chart.js pour voir le graphique.</div>`;
+    }
+  });
 }
 
-/* ---------- Service Worker ---------- */
+function baseChartOptions(yTitle, suffix='') {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { ticks: { color:'#ddd' }, grid: { color:'rgba(255,255,255,0.08)' } },
+      y: {
+        ticks: { color:'#ddd', callback: v => `${v}${suffix}` },
+        grid: { color:'rgba(255,255,255,0.08)' },
+        beginAtZero: true
+      }
+    },
+    plugins: {
+      legend: { labels: { color:'#eee' } }
+    },
+    elements: { point: { radius: 3 } }
+  };
+}
+
+/* ---------- Service Worker (installabilité, pas d'offline) ---------- */
 function initServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./service-worker.js').catch(() => {});
