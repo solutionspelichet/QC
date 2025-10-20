@@ -1,305 +1,302 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>QC Mobile</title>
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  <meta name="theme-color" content="#ff6a00">
-  <script defer src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
-  <script defer src="app.js"></script>
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="dark">
-  <header>
-    <h1>QC Mobile</h1>
-    <button id="toggleTheme" aria-label="Mode sombre/clair">🌓</button>
-  </header>
+<header>
+  <h1>QC Mobile</h1>
+  <div class="brand">Pelichet</div>
+  <button id="toggleTheme" aria-label="Basculer thème">🌙</button>
+</header>
 
-  <main>
-    <nav class="tabs">
-      <button data-tab="cartons" class="active">Cartons</button>
-      <button data-tab="palettes_avant">Palettes — Avant camion</button>
-      <button data-tab="palettes_dest">Palettes — Destination</button>
-      <button data-tab="kpi">KPI</button>
-      <button data-tab="export">Export</button>
-      <button id="btnProvision" class="outline">Provision (1ère fois)</button>
-    </nav>
+<nav class="tabs">
+  <button class="tab active" data-tab="cartons">Cartons</button>
+  <button class="tab" data-tab="palettes_avant">Palettes (Avant)</button>
+  <button class="tab" data-tab="palettes_dest">Palettes (Destination)</button>
+  <button class="tab" data-tab="kpi">KPI</button>
+</nav>
 
-    <!-- Cartons -->
-    <section id="tab-cartons" class="tab active">
-      <form id="formCartons" class="qc-form" enctype="multipart/form-data">
-        <input type="hidden" name="route" value="qc">
-        <input type="hidden" name="type" value="Cartons">
-
-        <label>Date du jour
-          <input type="date" name="date_jour" required />
-        </label>
-
-        <div class="group">
-          <label>Scanner le code-barres (photo)
-            <input type="file" id="cartonsScan" accept="image/*;capture=camera" />
-          </label>
-          <div class="row">
-            <input type="text" name="code_barres" id="cartonsCode" inputmode="numeric" pattern="\\d*" placeholder="Code-barres" required />
-            <button type="button" class="btn" id="btnDecodeCartons">Décoder</button>
-          </div>
-        </div>
-
-        <label>Photo principale du carton
-          <input type="file" name="photo_principale" accept="image/*;capture=camera" required />
-        </label>
-
-        <fieldset>
-          <legend>Contrôles</legend>
-
-          <div class="q">
-            <span>1. Callage papier bien fait ?</span>
-            <div class="row">
-              <label><input type="radio" name="q1_callage_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q1_callage_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q1_callage_ok">
-              <label>Photo problème <input type="file" name="q1_callage_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q1_callage_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>2. Intercalaires pour séparer les colonnes de livres ?</span>
-            <div class="row">
-              <label><input type="radio" name="q2_intercalaires_colonnes_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q2_intercalaires_colonnes_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q2_intercalaires_colonnes_ok">
-              <label>Photo problème <input type="file" name="q2_intercalaires_colonnes_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q2_intercalaires_colonnes_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>3. Ordre & disposition respectés ?</span>
-            <div class="row">
-              <label><input type="radio" name="q3_ordre_disposition_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q3_ordre_disposition_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q3_ordre_disposition_ok">
-              <label>Photo problème <input type="file" name="q3_ordre_disposition_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q3_ordre_disposition_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>4. Scotch bien appliqué ?</span>
-            <div class="row">
-              <label><input type="radio" name="q4_scotch_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q4_scotch_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q4_scotch_ok">
-              <label>Photo problème <input type="file" name="q4_scotch_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q4_scotch_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>5. Livres dépoussiérés ?</span>
-            <div class="row">
-              <label><input type="radio" name="q5_depoussierage_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q5_depoussierage_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q5_depoussierage_ok">
-              <label>Photo problème <input type="file" name="q5_depoussierage_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q5_depoussierage_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-        </fieldset>
-
-        <button class="primary" type="submit">Enregistrer</button>
-        <p class="hint">Rappel : si vous mettez “Pas OK”, une photo + un commentaire sont obligatoires.</p>
-        <div class="toast" id="toastCartons"></div>
-      </form>
-    </section>
-
-    <!-- Palettes Avant -->
-    <section id="tab-palettes_avant" class="tab">
-      <form id="formPaAvant" class="qc-form" enctype="multipart/form-data">
-        <input type="hidden" name="route" value="qc">
-        <input type="hidden" name="type" value="Palettes_Avant">
-
-        <label>Date du jour <input type="date" name="date_jour" required /></label>
-
-        <div class="group">
-          <label>Scanner le code-barres palette (photo)
-            <input type="file" id="paAvScan" accept="image/*;capture=camera" />
-          </label>
-          <div class="row">
-            <input type="text" name="code_barres" id="paAvCode" inputmode="numeric" pattern="\\d*" placeholder="Code-barres palette" required />
-            <button type="button" class="btn" id="btnDecodePaAv">Décoder</button>
-          </div>
-        </div>
-
-        <label>Photo principale de la palette
-          <input type="file" name="photo_principale" accept="image/*;capture=camera" required />
-        </label>
-
-        <fieldset>
-          <legend>Contrôles</legend>
-
-          <div class="q">
-            <span>1. Cartons en bon état ?</span>
-            <div class="row">
-              <label><input type="radio" name="q1_etat_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q1_etat_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q1_etat_ok">
-              <label>Photo problème <input type="file" name="q1_etat_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q1_etat_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>2. Intercalaires pour séparer les cartons ?</span>
-            <div class="row">
-              <label><input type="radio" name="q2_intercalaires_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q2_intercalaires_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q2_intercalaires_ok">
-              <label>Photo problème <input type="file" name="q2_intercalaires_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q2_intercalaires_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>3. Ordre & disposition respectés ?</span>
-            <div class="row">
-              <label><input type="radio" name="q3_ordre_disposition_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q3_ordre_disposition_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q3_ordre_disposition_ok">
-              <label>Photo problème <input type="file" name="q3_ordre_disposition_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q3_ordre_disposition_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>4. Cerclage bien appliqué ?</span>
-            <div class="row">
-              <label><input type="radio" name="q4_cerclage_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q4_cerclage_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q4_cerclage_ok">
-              <label>Photo problème <input type="file" name="q4_cerclage_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q4_cerclage_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>5. Palette stable ?</span>
-            <div class="row">
-              <label><input type="radio" name="q5_stabilite_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q5_stabilite_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q5_stabilite_ok">
-              <label>Photo problème <input type="file" name="q5_stabilite_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q5_stabilite_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-        </fieldset>
-
-        <button class="primary" type="submit">Enregistrer</button>
-        <div class="toast" id="toastPaAv"></div>
-      </form>
-    </section>
-
-    <!-- Palettes Destination -->
-    <section id="tab-palettes_dest" class="tab">
-      <form id="formPaDest" class="qc-form" enctype="multipart/form-data">
-        <input type="hidden" name="route" value="qc">
-        <input type="hidden" name="type" value="Palettes_Destination">
-
-        <label>Date du jour <input type="date" name="date_jour" required /></label>
-
-        <div class="group">
-          <label>Scanner le code-barres (photo)
-            <input type="file" id="paDeScan" accept="image/*;capture=camera" />
-          </label>
-          <div class="row">
-            <input type="text" name="code_barres" id="paDeCode" inputmode="numeric" pattern="\\d*" placeholder="Code-barres palette" required />
-            <button type="button" class="btn" id="btnDecodePaDe">Décoder</button>
-          </div>
-        </div>
-
-        <label>Photo principale de la palette
-          <input type="file" name="photo_principale" accept="image/*;capture=camera" required />
-        </label>
-
-        <fieldset>
-          <legend>Contrôles</legend>
-
-          <div class="q">
-            <span>1. Cartons en bon état ?</span>
-            <div class="row">
-              <label><input type="radio" name="q1_etat_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q1_etat_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q1_etat_ok">
-              <label>Photo problème <input type="file" name="q1_etat_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q1_etat_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-
-          <div class="q">
-            <span>2. Cerclage bien appliqué ?</span>
-            <div class="row">
-              <label><input type="radio" name="q2_cerclage_ok" value="OK" checked> OK</label>
-              <label><input type="radio" name="q2_cerclage_ok" value="KO"> Pas OK</label>
-            </div>
-            <div class="ko-fields" data-ko="q2_cerclage_ok">
-              <label>Photo problème <input type="file" name="q2_cerclage_ko_photo" accept="image/*;capture=camera"></label>
-              <label>Commentaire <textarea name="q2_cerclage_ko_commentaire" rows="2"></textarea></label>
-            </div>
-          </div>
-        </fieldset>
-
-        <button class="primary" type="submit">Enregistrer</button>
-        <div class="toast" id="toastPaDe"></div>
-      </form>
-    </section>
-
-    <!-- KPI -->
-    <section id="tab-kpi" class="tab">
-      <div class="row">
-        <label>Type
-          <select id="kpiType">
-            <option value="ALL">Tous</option>
-            <option value="Cartons">Cartons</option>
-            <option value="Palettes_Avant">Palettes_Avant</option>
-            <option value="Palettes_Destination">Palettes_Destination</option>
-          </select>
-        </label>
-        <button class="btn" id="btnLoadKpi">Charger KPI</button>
+<main>
+  <!-- Cartons -->
+  <section id="tab-cartons" class="tab-pane active" data-type="Cartons">
+    <form class="qc-form" data-type="Cartons">
+      <div class="field">
+        <label>Date du jour</label>
+        <input type="date" name="date_jour" required/>
       </div>
-      <div id="kpiSummary"></div>
-      <h3>Par date</h3>
-      <div id="kpiDate"></div>
-      <h3>Top non-conformités</h3>
-      <div id="kpiQuestions"></div>
-    </section>
 
-    <!-- Export -->
-    <section id="tab-export" class="tab">
-      <div class="row">
-        <label>Du <input type="date" id="exportFrom"></label>
-        <label>Au <input type="date" id="exportTo"></label>
-        <button class="btn" id="btnExport">Télécharger Excel</button>
+      <div class="field">
+        <label>Scan code-barres (photo)</label>
+        <input type="file" accept="image/*" capture="environment" id="cb_cartons" />
+        <button type="button" class="btn" data-action="decode" data-target="cb_cartons" data-out="code_cartons">Décoder</button>
+        <input type="text" id="code_cartons" name="code_barres" placeholder="Code-barres" inputmode="numeric" pattern="[0-9]*" required/>
       </div>
-      <p>Si vous laissez vide, l’export contiendra toutes les lignes.</p>
-    </section>
 
-  </main>
+      <div class="field">
+        <label>Photo principale du carton</label>
+        <input type="file" accept="image/*" capture="environment" name="photo_principale"/>
+      </div>
 
-  <footer>
-    <small>© QC Mobile — Pelichet — Mode public (sans authentification)</small>
-  </footer>
+      <fieldset>
+        <legend>Contrôles</legend>
+        <!-- 1 -->
+        <div class="q">
+          <label>Callage papier bien fait ?</label>
+          <div class="okko">
+            <label><input type="radio" name="callage_papier" value="OK" required> OK</label>
+            <label><input type="radio" name="callage_papier" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="callage_papier">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="callage_papier">
+            <label>Description</label>
+            <textarea data-commentfor="callage_papier" maxlength="500"></textarea>
+          </div>
+        </div>
+        <!-- 2 -->
+        <div class="q">
+          <label>Intercalaires pour séparer les colonnes de livres ?</label>
+          <div class="okko">
+            <label><input type="radio" name="intercalaires_livres" value="OK" required> OK</label>
+            <label><input type="radio" name="intercalaires_livres" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="intercalaires_livres">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="intercalaires_livres">
+            <label>Description</label>
+            <textarea data-commentfor="intercalaires_livres" maxlength="500"></textarea>
+          </div>
+        </div>
+        <!-- 3 -->
+        <div class="q">
+          <label>Ordre des colonnes & disposition respectés ?</label>
+          <div class="okko">
+            <label><input type="radio" name="ordre_colonnes" value="OK" required> OK</label>
+            <label><input type="radio" name="ordre_colonnes" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="ordre_colonnes">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="ordre_colonnes">
+            <label>Description</label>
+            <textarea data-commentfor="ordre_colonnes" maxlength="500"></textarea>
+          </div>
+        </div>
+        <!-- 4 -->
+        <div class="q">
+          <label>Scotch bien appliqué ?</label>
+          <div class="okko">
+            <label><input type="radio" name="scotch" value="OK" required> OK</label>
+            <label><input type="radio" name="scotch" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="scotch">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="scotch">
+            <label>Description</label>
+            <textarea data-commentfor="scotch" maxlength="500"></textarea>
+          </div>
+        </div>
+        <!-- 5 -->
+        <div class="q">
+          <label>Livres dépoussiérés ?</label>
+          <div class="okko">
+            <label><input type="radio" name="depoussierage" value="OK" required> OK</label>
+            <label><input type="radio" name="depoussierage" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="depoussierage">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="depoussierage">
+            <label>Description</label>
+            <textarea data-commentfor="depoussierage" maxlength="500"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn primary">Enregistrer</button>
+      <p class="hint">Règle : tout **KO** ⇒ photo + commentaire obligatoires.</p>
+      <div class="result" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- Palettes Avant -->
+  <section id="tab-palettes_avant" class="tab-pane" data-type="Palettes_Avant">
+    <form class="qc-form" data-type="Palettes_Avant">
+      <div class="field">
+        <label>Date du jour</label>
+        <input type="date" name="date_jour" required/>
+      </div>
+
+      <div class="field">
+        <label>Scan code-barres palette (photo)</label>
+        <input type="file" accept="image/*" capture="environment" id="cb_pa"/>
+        <button type="button" class="btn" data-action="decode" data-target="cb_pa" data-out="code_pa">Décoder</button>
+        <input type="text" id="code_pa" name="code_barres" placeholder="Code-barres palette" inputmode="numeric" pattern="[0-9]*" required/>
+      </div>
+
+      <div class="field">
+        <label>Photo principale de la palette</label>
+        <input type="file" accept="image/*" capture="environment" name="photo_principale"/>
+      </div>
+
+      <fieldset>
+        <legend>Contrôles</legend>
+        <div class="q">
+          <label>Cartons en bon état ?</label>
+          <div class="okko">
+            <label><input type="radio" name="cartons_etat" value="OK" required> OK</label>
+            <label><input type="radio" name="cartons_etat" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="cartons_etat">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="cartons_etat">
+            <label>Description</label>
+            <textarea data-commentfor="cartons_etat" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="q">
+          <label>Intercalaires pour séparer les cartons ?</label>
+          <div class="okko">
+            <label><input type="radio" name="intercalaires_cartons" value="OK" required> OK</label>
+            <label><input type="radio" name="intercalaires_cartons" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="intercalaires_cartons">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="intercalaires_cartons">
+            <label>Description</label>
+            <textarea data-commentfor="intercalaires_cartons" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="q">
+          <label>Ordre & disposition des cartons respectés ?</label>
+          <div class="okko">
+            <label><input type="radio" name="ordre_cartons" value="OK" required> OK</label>
+            <label><input type="radio" name="ordre_cartons" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="ordre_cartons">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="ordre_cartons">
+            <label>Description</label>
+            <textarea data-commentfor="ordre_cartons" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="q">
+          <label>Cerclage bien appliqué ?</label>
+          <div class="okko">
+            <label><input type="radio" name="cerclage" value="OK" required> OK</label>
+            <label><input type="radio" name="cerclage" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="cerclage">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="cerclage">
+            <label>Description</label>
+            <textarea data-commentfor="cerclage" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="q">
+          <label>Palette stable ?</label>
+          <div class="okko">
+            <label><input type="radio" name="stabilite" value="OK" required> OK</label>
+            <label><input type="radio" name="stabilite" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="stabilite">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="stabilite">
+            <label>Description</label>
+            <textarea data-commentfor="stabilite" maxlength="500"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn primary">Enregistrer</button>
+      <p class="hint">Règle : tout **KO** ⇒ photo + commentaire obligatoires.</p>
+      <div class="result" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- Palettes Destination -->
+  <section id="tab-palettes_dest" class="tab-pane" data-type="Palettes_Destination">
+    <form class="qc-form" data-type="Palettes_Destination">
+      <div class="field">
+        <label>Date du jour</label>
+        <input type="date" name="date_jour" required/>
+      </div>
+
+      <div class="field">
+        <label>Scan code-barres (photo)</label>
+        <input type="file" accept="image/*" capture="environment" id="cb_pd"/>
+        <button type="button" class="btn" data-action="decode" data-target="cb_pd" data-out="code_pd">Décoder</button>
+        <input type="text" id="code_pd" name="code_barres" placeholder="Code-barres palette" inputmode="numeric" pattern="[0-9]*" required/>
+      </div>
+
+      <div class="field">
+        <label>Photo principale de la palette</label>
+        <input type="file" accept="image/*" capture="environment" name="photo_principale"/>
+      </div>
+
+      <fieldset>
+        <legend>Contrôles</legend>
+        <div class="q">
+          <label>Cartons en bon état ?</label>
+          <div class="okko">
+            <label><input type="radio" name="cartons_etat" value="OK" required> OK</label>
+            <label><input type="radio" name="cartons_etat" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="cartons_etat">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="cartons_etat">
+            <label>Description</label>
+            <textarea data-commentfor="cartons_etat" maxlength="500"></textarea>
+          </div>
+        </div>
+
+        <div class="q">
+          <label>Cerclage bien appliqué ?</label>
+          <div class="okko">
+            <label><input type="radio" name="cerclage" value="OK" required> OK</label>
+            <label><input type="radio" name="cerclage" value="KO"> Pas OK</label>
+          </div>
+          <div class="ko-extra" data-for="cerclage">
+            <label>Photo problème</label>
+            <input type="file" accept="image/*" capture="environment" data-photofor="cerclage">
+            <label>Description</label>
+            <textarea data-commentfor="cerclage" maxlength="500"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn primary">Enregistrer</button>
+      <p class="hint">Règle : tout **KO** ⇒ photo + commentaire obligatoires.</p>
+      <div class="result" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <!-- KPI -->
+  <section id="tab-kpi" class="tab-pane">
+    <div class="kpi-controls">
+      <label>Du</label><input type="date" id="kpi_from">
+      <label>Au</label><input type="date" id="kpi_to">
+      <button id="btnKpi" class="btn">Actualiser KPI</button>
+      <button id="btnExport" class="btn">Exporter Excel</button>
+    </div>
+    <div id="kpiResults"></div>
+  </section>
+</main>
+
+<footer>
+  <small>© Pelichet — QC</small>
+</footer>
+
+<script src="https://unpkg.com/@zxing/browser@latest"></script>
+<script src="app.js"></script>
 </body>
 </html>
