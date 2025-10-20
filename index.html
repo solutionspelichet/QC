@@ -1,20 +1,39 @@
 <!doctype html>
 <html lang="fr">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>QC Mobile</title>
-  <link rel="manifest" href="manifest.json">
+
+
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#FF6A00" />
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icon-16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+  <link rel="apple-touch-icon" href="/icon-180.png">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <title>Pelichet QC</title>
   <link rel="stylesheet" href="style.css">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
+
+
+  
+
 <body class="dark">
-<header>
-  <h1>QC Mobile</h1>
-  <div class="brand">Pelichet</div>
-  <button id="toggleTheme" aria-label="Basculer thème">🌙</button>
+<header class="app-header">
+  <div class="brand">
+    <img src="logo-pelichet.svg" alt="Pelichet QC" class="logo">
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-tab="cartons">Cartons</button>
+    <button class="tab" data-tab="palettes-avant">Palettes Avant</button>
+    <button class="tab" data-tab="palettes-destination">Palettes Destination</button>
+    <button class="tab" data-tab="kpi">KPI</button>
+  </nav>
+  <div class="actions">
+    <button id="toggleTheme" class="icon-btn" title="Thème clair/sombre" aria-label="Basculer le thème">🌓</button>
+  </div>
 </header>
+
 
 <nav class="tabs">
   <button class="tab active" data-tab="cartons">Cartons</button>
@@ -298,5 +317,6 @@
 
 <script src="https://unpkg.com/@zxing/browser@latest"></script>
 <script src="app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </body>
 </html>
