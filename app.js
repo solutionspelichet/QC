@@ -231,16 +231,18 @@ async function loadAndRenderKpi(){
   renderKpi(js.kpi);
 }
 function doExportXlsx(){
-  const from=qs('#kpi_from').value, to=qs('#kpi_to').value;
-  const url=new URL(CONFIG.WEBAPP_BASE_URL);
+  const from = qs('#kpi_from').value, to = qs('#kpi_to').value;
+  const url = new URL(CONFIG.WEBAPP_BASE_URL);
   url.searchParams.set('route','export');
-  if(from) url.searchParams.set('from',from);
-  if(to) url.searchParams.set('to',to);
+  if (from) url.searchParams.set('from',from);
+  if (to)   url.searchParams.set('to',to);
   fetch(url).then(r=>r.json()).then(js=>{
-    if(!js.ok){ alert('Export échoué'); return; }
-    window.open(js.webViewLink,'_blank');
-  }).catch(()=>alert('Export échoué'));
+    if (!js.ok) { alert('Export échoué'); return; }
+    const href = js.directDownloadUrl || js.webViewLink;
+    window.open(href, '_blank');
+  }).catch(()=> alert('Export échoué'));
 }
+
 function renderKpi(kpi){
   CHARTS.forEach(ch=>{try{ch.destroy();}catch{}});
   CHARTS=[];
