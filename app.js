@@ -136,6 +136,28 @@ async function fileToDataUrlWithExt(input){
   });
   return { dataUrl, ext };
 }
+function hookCameraGalleryPair(cameraInputId, galleryInputId, targetInputId, labelId){
+  const cam = qs('#'+cameraInputId);
+  const gal = qs('#'+galleryInputId);
+  const tgt = qs('#'+targetInputId);
+  const lbl = qs('#'+labelId);
+  const btnCam = qs('#btnPhotoMainCam');
+  const btnGal = qs('#btnPhotoMainGal');
+
+  if (btnCam && cam) btnCam.addEventListener('click', ()=> cam.click());
+  if (btnGal && gal) btnGal.addEventListener('click', ()=> gal.click());
+
+  function copyToTarget(src){
+    if (!src.files || !src.files[0]) return;
+    // On créé un DataTransfer pour affecter programmatique le fichier au champ cible
+    const dt = new DataTransfer();
+    dt.items.add(src.files[0]);
+    tgt.files = dt.files;
+    if (lbl) lbl.textContent = src.files[0].name;
+  }
+  if (cam) cam.addEventListener('change', ()=> copyToTarget(cam));
+  if (gal) gal.addEventListener('change', ()=> copyToTarget(gal));
+}
 
 /* ========== Envoi formulaires -> Apps Script ========== */
 const CONFIG = { WEBAPP_BASE_URL: "" }; // rempli par config.json si tu en as un
