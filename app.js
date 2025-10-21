@@ -1,17 +1,19 @@
-/* ================================
-   Pelichet QC — app.js (resize + loader)
-   ================================ */
+/* ============================================
+   Pelichet QC — app.js (resize + loader + XHR)
+   ============================================ */
 
 /* ---------- Config globale sans redéclaration ---------- */
 (function ensureConfig(){
   window.CONFIG = window.CONFIG || {};
   if (typeof window.CONFIG.WEBAPP_BASE_URL !== 'string') window.CONFIG.WEBAPP_BASE_URL = '';
-  // Options de redimensionnement (désactivé par défaut)
+
+  // Options de redimensionnement (par défaut désactivé = pas de compression)
   if (typeof window.CONFIG.RESIZE_ENABLED !== 'boolean') window.CONFIG.RESIZE_ENABLED = false;
   if (typeof window.CONFIG.MAX_IMAGE_DIM !== 'number') window.CONFIG.MAX_IMAGE_DIM = 1600; // plus grand côté
   if (typeof window.CONFIG.OUTPUT_MIME !== 'string') window.CONFIG.OUTPUT_MIME = 'image/jpeg'; // 'image/jpeg' | 'image/png'
   if (typeof window.CONFIG.QUALITY !== 'number') window.CONFIG.QUALITY = 0.85; // JPEG: 0..1
 
+  // Charger config.json une seule fois
   if (!window.CONFIG.__loadedFromJson__) {
     fetch('config.json')
       .then(r=>r.ok?r.json():{})
@@ -27,17 +29,31 @@
 function qs(s, r=document){ return r.querySelector(s); }
 function qsa(s, r=document){ return Array.from(r.querySelectorAll(s)); }
 
-/* ---------- Loader (overlay) ---------- */
-function showLoader(text='Envoi en cours…'){
-  const el = qs('#appLoader');
+/* ---------- Loader overlay (avec progression) ---------- */
+function showLoader(text='Traitement en cours…'){
+  const el = document.getElementById('appLoader');
   if (!el) return;
-  qs('.loader-text', el).textContent = text;
+  const textEl = el.querySelector('.loader-text');
+  if (textEl) textEl.textContent = text;
+  const bar = el.querySelector('.loader-bar');
+  const pct = el.querySelector('.loader-percent');
+  if (bar) bar.style.width = '0%';
+  if (pct) pct.textContent = '0%';
   el.classList.add('visible');
 }
 function hideLoader(){
-  const el = qs('#appLoader');
+  const el = document.getElementById('appLoader');
   if (!el) return;
   el.classList.remove('visible');
+}
+function setLoaderProgress(loaded, total){
+  const el = document.getElementById('appLoader');
+  if (!el || !total || total<=0) return;
+  const p = Math.min(100, Math.round(loaded*100/total));
+  const bar = el.querySelector('.loader-bar');
+  const pct = el.querySelector('.loader-percent');
+  if (bar) bar.style.width = p + '%';
+  if (pct) pct.textContent = p + '%';
 }
 
 /* ---------- Onglets ---------- */
@@ -57,7 +73,7 @@ function initTabs(){
   });
 }
 
-/* ---------- Thème ---------- */
+/* ---------- Thème clair/sombre ---------- */
 function initThemeToggle(){
   const toggle = document.getElementById('toggleTheme');
   if (!toggle) return;
@@ -168,7 +184,12 @@ async function resizeFileIfNeeded(file){
   }
 
   // Sinon: resize côté client
-  return await resizeDataUrl(dataUrl, window.CONFIG.MAX_IMAGE_DIM, window.CONFIG.OUTPUT_MIME, window.CONFIG.QUALITY);
+  return await resizeDataUrl(
+    dataUrl,
+    window.CONFIG.MAX_IMAGE_DIM,
+    window.CONFIG.OUTPUT_MIME,
+    window.CONFIG.QUALITY
+  );
 }
 
 /* Redimensionne un dataURL → dataURL */
@@ -259,6 +280,56 @@ function hookCameraGalleryPair(btnCamId, camId, btnGalId, galId, targetId, label
   if (gal && tgt) gal.addEventListener('change', ()=> copyToTarget(gal));
 }
 
+/* ---------- Réseau : fetch timeout + fallback XHR avec progression ---------- */
+function fetchWithTimeout(input, init={}, timeoutMs=30000){
+  return new Promise((resolve, reject)=>{
+    const ctrl = new AbortController();
+    const id = setTimeout(()=>{ ctrl.abort(); reject(new Error('Timeout réseau')); }, timeoutMs);
+    fetch(input, { ...init, signal: ctrl.signal, redirect: 'follow', mode: 'cors' })
+      .then(r=>{ clearTimeout(id); resolve(r); })
+      .catch(e=>{ clearTimeout(id); reject(e); });
+  });
+}
+function postFormDataXHR(url, formData, onProgress){
+  return new Promise((resolve, reject)=>{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.responseType = 'json';
+    xhr.onload = ()=> {
+      let body = xhr.response;
+      if (!body && typeof xhr.responseText === 'string') {
+        try { body = JSON.parse(xhr.responseText); } catch { /* noop */ }
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body);
+      else reject(new Error('HTTP ' + xhr.status));
+    };
+    xhr.onerror = ()=> reject(new Error('Erreur réseau (XHR)'));
+    xhr.ontimeout = ()=> reject(new Error('Timeout (XHR)'));
+    if (xhr.upload && typeof onProgress === 'function') {
+      xhr.upload.onprogress = (e)=>{
+        if (e.lengthComputable) onProgress(e.loaded, e.total);
+      };
+    }
+    xhr.send(formData);
+  });
+}
+async function sendFormToBackend(fd){
+  const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
+  if (!baseUrl) throw new Error('URL backend non configurée');
+
+  // 1) Tentative via fetch
+  try{
+    const r = await fetchWithTimeout(baseUrl, { method: 'POST', body: fd }, 45000);
+    let js = null;
+    try { js = await r.json(); } 
+    catch { const t = await r.text(); js = JSON.parse(t); }
+    return js;
+  }catch(_){
+    // 2) Fallback XHR (Android friendly + progression)
+    return await postFormDataXHR(baseUrl, fd, (loaded,total)=> setLoaderProgress(loaded,total));
+  }
+}
+
 /* ---------- Envoi formulaires -> Apps Script ---------- */
 function initForms(){
   qsa('.qc-form').forEach(form=>{
@@ -271,7 +342,6 @@ function initForms(){
       const codeBarres = qs('input[name="code_barres"]', form).value.trim();
       if (!date || !codeBarres) { alert('Date et code-barres requis.'); return; }
 
-      // Loader
       showLoader('Envoi en cours…');
 
       try{
@@ -282,7 +352,7 @@ function initForms(){
           photoMain = await resizeFileIfNeeded(photoInput.files[0]);
         }
 
-        // Questions
+        // Questions selon type
         const questionsMap = {
           Cartons: ['callage_papier','intercalaires_livres','ordre_colonnes','scotch','depoussierage'],
           Palettes_Avant: ['cartons_etat','intercalaires_cartons','ordre_cartons','cerclage','stabilite'],
@@ -296,7 +366,7 @@ function initForms(){
           if (!val) { alert('Veuillez répondre à toutes les questions.'); hideLoader(); return; }
 
           let photo = null;      // compat backend (1ère photo)
-          let photos = [];       // nouvelles multiples
+          let photos = [];       // multiples
           let commentaire = '';
 
           if (val === 'KO') {
@@ -309,39 +379,28 @@ function initForms(){
               hideLoader();
               return;
             }
-            // Redimensionner toutes les photos KO si activé
             for (const f of fileInput.files) {
-              const r = await resizeFileIfNeeded(f);
-              photos.push(r);
+              const resized = await resizeFileIfNeeded(f);
+              photos.push(resized);
             }
             if (photos.length>0) photo = photos[0];
           }
           answers.push({ field: q, value: val, photo, photos, commentaire });
         }
 
-        const payload = {
-          date_jour: date,
-          type,
-          code_barres: codeBarres,
-          photo_principale: photoMain,
-          answers
-        };
-
-        const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
-        if (!baseUrl) { alert('URL backend non configurée (config.json → WEBAPP_BASE_URL).'); hideLoader(); return; }
+        const payload = { date_jour: date, type, code_barres: codeBarres, photo_principale: photoMain, answers };
 
         const fd = new FormData();
         fd.append('route', 'qc');
         fd.append('type', type);
         fd.append('payload', JSON.stringify(payload));
 
-        const r = await fetch(baseUrl, { method: 'POST', body: fd });
-        const js = await r.json();
-        if (!js.ok) throw new Error(js.error || 'Erreur serveur');
+        const js = await sendFormToBackend(fd);
+        if (!js || !js.ok) throw new Error((js && js.error) || 'Erreur serveur');
 
         if (result) result.textContent = '✅ Enregistrement réussi';
         form.reset();
-        initKoBlocks();
+        initKoBlocks(); // referme les blocs KO
       }catch(err){
         if (result) result.textContent = '❌ ' + String(err.message || err);
       }finally{
@@ -351,7 +410,9 @@ function initForms(){
   });
 }
 
-/* ---------- KPI / Export (loader intégré) ---------- */
+/* =========================
+   KPI — synthèse + tableau + courbe
+   ========================= */
 let CHARTS = [];
 function initKpi(){
   const btnKpi = qs('#btnKpi'); if (btnKpi) btnKpi.addEventListener('click', loadAndRenderKpi);
@@ -372,7 +433,7 @@ async function loadAndRenderKpi(){
   const box = qs('#kpiResults'); if (box) box.textContent = 'Chargement KPI…';
   showLoader('Chargement KPI…');
   try{
-    const js = await fetch(url).then(r=>r.json());
+    const js = await fetchWithTimeout(url.toString(), {}, 30000).then(r=>r.json());
     if (!js.ok) { box.textContent='Erreur KPI'; return; }
     renderKpi(js.kpi);
   }catch{
@@ -391,11 +452,14 @@ function doExportXlsx(){
   if (to)   url.searchParams.set('to', to);
 
   showLoader('Préparation de l’export…');
-  fetch(url).then(r=>r.json()).then(js=>{
-    if (!js.ok) { alert('Export échoué'); return; }
-    const href = js.directDownloadUrl || js.webViewLink;
-    window.open(href, '_blank');
-  }).catch(()=> alert('Export échoué'))
+  fetchWithTimeout(url.toString(), {}, 45000)
+    .then(r=>r.json())
+    .then(js=>{
+      if (!js.ok) { alert('Export échoué'); return; }
+      const href = js.directDownloadUrl || js.webViewLink;
+      window.open(href, '_blank');
+    })
+    .catch(()=> alert('Export échoué'))
     .finally(hideLoader);
 }
 function renderKpi(kpi){
@@ -478,7 +542,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   initKpi();
   initServiceWorker();
 
-  // Hooks Caméra/Galerie -> cibles
+  // Hooks Caméra/Galerie -> cibles (IDs alignés avec index.html)
   hookCameraGalleryPair('btnCartonsPhotoCam','cartons_photo_cam','btnCartonsPhotoGal','cartons_photo_gal','cartons_photo_target','cartons_photo_label');
   hookCameraGalleryPair('btnCartonsBcCam','cartons_bc_cam','btnCartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label');
 
