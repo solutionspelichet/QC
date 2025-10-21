@@ -207,6 +207,7 @@ table.kpi {
   * { transition: none !important; animation: none !important; }
 }
 /* ===== Loader overlay ===== */
+/* ===== Loader overlay (avec progression) ===== */
 .loader-overlay{
   position: fixed; inset: 0; display: grid; place-items: center;
   background: color-mix(in oklab, var(--bg) 70%, black 30%);
@@ -215,11 +216,26 @@ table.kpi {
   z-index: 9999;
 }
 .loader-overlay.visible{ opacity: 1; visibility: visible; }
+.loader-box{
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; width: min(420px, 92vw); text-align: center;
+  box-shadow: var(--shadow);
+}
 .loader-spinner{
-  width: 48px; height: 48px; border-radius: 50%;
+  width: 42px; height: 42px; border-radius: 50%;
   border: 4px solid color-mix(in oklab, var(--primary) 30%, transparent 70%);
   border-top-color: var(--primary);
-  animation: spin 1s linear infinite; margin-bottom: 10px;
+  animation: spin 1s linear infinite; margin: 0 auto 10px;
 }
-.loader-text{ color: var(--text); font-weight: 700; text-shadow: 0 1px 0 rgba(0,0,0,.2); }
+.loader-text{ font-weight: 700; margin-bottom: 8px; }
+.loader-progress{
+  height: 10px; border-radius: 999px; background: var(--bg-elev);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.loader-bar{
+  height: 100%; background: var(--primary); width: 0%;
+  transition: width .1s linear;
+}
+.loader-percent{ margin-top: 6px; color: var(--muted); font-weight: 700; }
 @keyframes spin { to { transform: rotate(360deg); } }
