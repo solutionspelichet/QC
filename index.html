@@ -46,6 +46,384 @@
           <!-- Photo principale : Caméra + Galerie -> cible photo_principale -->
           <div>
             <label>Photo principale (carton)</label>
+            <input type="file" id="cartons_photo_cam" accept="image/*" capture="environment" style="display:none">
+            <input type="file" id="cartons_photo_gal" accept="image/*" style="display:none">
+            <input type="file" name="photo_principale" id="cartons_photo_target" accept="image/*" style="display:none">
+            <div class="row">
+              <button type="button" class="btn" id="btnCartonsPhotoCam">📷 Prendre photo</button>
+              <button type="button" class="btn secondary" id="btnCartonsPhotoGal">🖼️ Galerie</button>
+              <span id="cartons_photo_label" style="margin-left:8px;color:var(--muted)"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code-barres : Caméra + Galerie -> cible cartons_barcode_file + Décoder -->
+        <div class="card">
+          <label>Décoder un code-barres (photo)</label>
+          <input type="file" id="cartons_bc_cam" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="cartons_bc_gal" accept="image/*" style="display:none">
+          <input type="file" accept="image/*" id="cartons_barcode_file" style="display:none">
+          <div class="row">
+            <button type="button" class="btn" id="btnCartonsBcCam">📷 Prendre photo</button>
+            <button type="button" class="btn secondary" id="btnCartonsBcGal">🖼️ Galerie</button>
+            <button type="button" class="btn" data-action="decode" data-target="cartons_barcode_file" data-out="cartons_code_barres">Décoder</button>
+            <span id="cartons_bc_label" style="margin-left:8px;color:var(--muted)"></span>
+          </div>
+          <input type="text" name="code_barres" id="cartons_code_barres" placeholder="Code-barres" required>
+        </div>
+
+        <div class="card">
+          <h3>Contrôles</h3>
+
+          <div class="card">
+            <label>Le calage papier est-il bien fait ?</label>
+            <div class="okko">
+              <label><input type="radio" name="callage_papier" value="OK" checked> OK</label>
+              <label><input type="radio" name="callage_papier" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="callage_papier">
+              <label>Photos du problème (plusieurs possibles)</label>
+              <input type="file" accept="image/*" data-photofor="callage_papier" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="callage_papier" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Y a-t-il des intercalaires pour séparer les colonnes de livres ?</label>
+            <div class="okko">
+              <label><input type="radio" name="intercalaires_livres" value="OK" checked> OK</label>
+              <label><input type="radio" name="intercalaires_livres" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="intercalaires_livres">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="intercalaires_livres" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="intercalaires_livres" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>L’ordre des colonnes et la disposition sont-ils respectés ?</label>
+            <div class="okko">
+              <label><input type="radio" name="ordre_colonnes" value="OK" checked> OK</label>
+              <label><input type="radio" name="ordre_colonnes" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="ordre_colonnes">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="ordre_colonnes" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="ordre_colonnes" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Le scotch est-il bien appliqué ?</label>
+            <div class="okko">
+              <label><input type="radio" name="scotch" value="OK" checked> OK</label>
+              <label><input type="radio" name="scotch" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="scotch">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="scotch" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="scotch" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Les livres ont-ils bien été dépoussiérés ?</label>
+            <div class="okko">
+              <label><input type="radio" name="depoussierage" value="OK" checked> OK</label>
+              <label><input type="radio" name="depoussierage" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="depoussierage">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="depoussierage" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="depoussierage" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" type="submit" style="width:100%">Enregistrer</button>
+        <div class="result"></div>
+        <p style="color:var(--muted)">Règle : toute <strong>KO</strong> ⇒ au moins 1 photo + un commentaire.</p>
+      </form>
+    </section>
+
+    <!-- ==================== PALETTES AVANT ==================== -->
+    <section id="tab-palettes-avant" class="tab-pane">
+      <h2>Contrôle — Palettes (Avant)</h2>
+      <form class="qc-form" data-type="Palettes_Avant">
+        <div class="card grid-2">
+          <div>
+            <label>Date du contrôle</label>
+            <input type="date" name="date_jour" required>
+          </div>
+          <div>
+            <label>Photo principale (palette)</label>
+            <input type="file" id="pa_photo_cam" accept="image/*" capture="environment" style="display:none">
+            <input type="file" id="pa_photo_gal" accept="image/*" style="display:none">
+            <input type="file" name="photo_principale" id="pa_photo_target" accept="image/*" style="display:none">
+            <div class="row">
+              <button type="button" class="btn" id="btnPaPhotoCam">📷 Prendre photo</button>
+              <button type="button" class="btn secondary" id="btnPaPhotoGal">🖼️ Galerie</button>
+              <span id="pa_photo_label" style="margin-left:8px;color:var(--muted)"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <label>Décoder un code-barres palette (photo)</label>
+          <input type="file" id="pa_bc_cam" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="pa_bc_gal" accept="image/*" style="display:none">
+          <input type="file" accept="image/*" id="pa_barcode_file" style="display:none">
+          <div class="row">
+            <button type="button" class="btn" id="btnPaBcCam">📷 Prendre photo</button>
+            <button type="button" class="btn secondary" id="btnPaBcGal">🖼️ Galerie</button>
+            <button type="button" class="btn" data-action="decode" data-target="pa_barcode_file" data-out="pa_code_barres">Décoder</button>
+            <span id="pa_bc_label" style="margin-left:8px;color:var(--muted)"></span>
+          </div>
+          <input type="text" name="code_barres" id="pa_code_barres" placeholder="Code-barres palette" required>
+        </div>
+
+        <div class="card">
+          <h3>Contrôles</h3>
+
+          <div class="card">
+            <label>Les cartons sont-ils en bon état ?</label>
+            <div class="okko">
+              <label><input type="radio" name="cartons_etat" value="OK" checked> OK</label>
+              <label><input type="radio" name="cartons_etat" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="cartons_etat">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="cartons_etat" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="cartons_etat" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Y a-t-il des intercalaires pour séparer les cartons ?</label>
+            <div class="okko">
+              <label><input type="radio" name="intercalaires_cartons" value="OK" checked> OK</label>
+              <label><input type="radio" name="intercalaires_cartons" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="intercalaires_cartons">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="intercalaires_cartons" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="intercalaires_cartons" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>L’ordre des cartons et la disposition sont-ils respectés ?</label>
+            <div class="okko">
+              <label><input type="radio" name="ordre_cartons" value="OK" checked> OK</label>
+              <label><input type="radio" name="ordre_cartons" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="ordre_cartons">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="ordre_cartons" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="ordre_cartons" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Le cerclage est-il bien appliqué ?</label>
+            <div class="okko">
+              <label><input type="radio" name="cerclage" value="OK" checked> OK</label>
+              <label><input type="radio" name="cerclage" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="cerclage">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="cerclage" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="cerclage" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>La palette est-elle stable ?</label>
+            <div class="okko">
+              <label><input type="radio" name="stabilite" value="OK" checked> OK</label>
+              <label><input type="radio" name="stabilite" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="stabilite">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="stabilite" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="stabilite" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" type="submit" style="width:100%">Enregistrer</button>
+        <div class="result"></div>
+        <p style="color:var(--muted)">Règle : toute <strong>KO</strong> ⇒ au moins 1 photo + un commentaire.</p>
+      </form>
+    </section>
+
+    <!-- ==================== PALETTES DESTINATION ==================== -->
+    <section id="tab-palettes-destination" class="tab-pane">
+      <h2>Contrôle — Palettes (Destination)</h2>
+      <form class="qc-form" data-type="Palettes_Destination">
+        <div class="card grid-2">
+          <div>
+            <label>Date du contrôle</label>
+            <input type="date" name="date_jour" required>
+          </div>
+          <div>
+            <label>Photo principale (palette)</label>
+            <input type="file" id="pd_photo_cam" accept="image/*" capture="environment" style="display:none">
+            <input type="file" id="pd_photo_gal" accept="image/*" style="display:none">
+            <input type="file" name="photo_principale" id="pd_photo_target" accept="image/*" style="display:none">
+            <div class="row">
+              <button type="button" class="btn" id="btnPdPhotoCam">📷 Prendre photo</button>
+              <button type="button" class="btn secondary" id="btnPdPhotoGal">🖼️ Galerie</button>
+              <span id="pd_photo_label" style="margin-left:8px;color:var(--muted)"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <label>Décoder un code-barres (photo)</label>
+          <input type="file" id="pd_bc_cam" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="pd_bc_gal" accept="image/*" style="display:none">
+          <input type="file" accept="image/*" id="pd_barcode_file" style="display:none">
+          <div class="row">
+            <button type="button" class="btn" id="btnPdBcCam">📷 Prendre photo</button>
+            <button type="button" class="btn secondary" id="btnPdBcGal">🖼️ Galerie</button>
+            <button type="button" class="btn" data-action="decode" data-target="pd_barcode_file" data-out="pd_code_barres">Décoder</button>
+            <span id="pd_bc_label" style="margin-left:8px;color:var(--muted)"></span>
+          </div>
+          <input type="text" name="code_barres" id="pd_code_barres" placeholder="Code-barres" required>
+        </div>
+
+        <div class="card">
+          <h3>Contrôles</h3>
+
+          <div class="card">
+            <label>Les cartons sont-ils en bon état ?</label>
+            <div class="okko">
+              <label><input type="radio" name="cartons_etat" value="OK" checked> OK</label>
+              <label><input type="radio" name="cartons_etat" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="cartons_etat">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="cartons_etat" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="cartons_etat" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <label>Le cerclage est-il bien appliqué ?</label>
+            <div class="okko">
+              <label><input type="radio" name="cerclage" value="OK" checked> OK</label>
+              <label><input type="radio" name="cerclage" value="KO"> KO</label>
+            </div>
+            <div class="ko-extra" data-for="cerclage">
+              <label>Photos du problème</label>
+              <input type="file" accept="image/*" data-photofor="cerclage" multiple>
+              <label>Description</label>
+              <textarea data-commentfor="cerclage" placeholder="Décrivez le problème…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn" type="submit" style="width:100%">Enregistrer</button>
+        <div class="result"></div>
+        <p style="color:var(--muted)">Règle : toute <strong>KO</strong> ⇒ au moins 1 photo + un commentaire.</p>
+      </form>
+    </section>
+
+    <!-- ==================== KPI ==================== -->
+    <section id="tab-kpi" class="tab-pane">
+      <h2>Tableau de bord KPI</h2>
+      <div class="row">
+        <label for="kpi_from">Du :</label><input type="date" id="kpi_from">
+        <label for="kpi_to">au :</label><input type="date" id="kpi_to">
+        <button class="btn" id="btnKpi">Afficher</button>
+        <button class="btn secondary" id="btnExport">Export Excel</button>
+      </div>
+      <div id="kpiResults" class="kpi-wrap"></div>
+    </section>
+  </main>
+
+  <footer class="center" style="margin:40px 0; font-size:14px; color:var(--muted)">
+    © Pelichet — QC
+  </footer>
+
+  <!-- Librairies + App -->
+  <script src="https://unpkg.com/@zxing/browser@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+
+  <!-- Script inline : hooks Caméra/Galerie + date du jour -->
+  <script>
+  (function(){
+    function copyToTarget(srcInput, targetInput, labelEl){
+      if (!srcInput.files || !srcInput.files[0]) return;
+      const dt = new DataTransfer();
+      dt.items.add(srcInput.files[0]);
+      targetInput.files = dt.files;
+      if (labelEl) labelEl.textContent = srcInput.files[0].name;
+    }
+    function hookPair(btnCamId, camId, btnGalId, galId, targetId, labelId){
+      const btnCam = document.getElementById(btnCamId);
+      const cam = document.getElementById(camId);
+      const btnGal = document.getElementById(btnGalId);
+      const gal = document.getElementById(galId);
+      const tgt = document.getElementById(targetId);
+      const label = document.getElementById(labelId);
+      if (btnCam && cam) btnCam.addEventListener('click', ()=> cam.click());
+      if (btnGal && gal) btnGal.addEventListener('click', ()=> gal.click());
+      if (cam && tgt) cam.addEventListener('change', ()=> copyToTarget(cam, tgt, label));
+      if (gal && tgt) gal.addEventListener('change', ()=> copyToTarget(gal, tgt, label));
+    }
+
+    function setTodayOnAllDates(){
+      const pad = n => String(n).padStart(2,'0');
+      const d = new Date();
+      const val = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+      document.querySelectorAll('input[type="date"]').forEach(inp=>{
+        if (!inp.value) inp.value = val; // ne pas écraser si déjà rempli
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      // Cartons
+      hookPair('btnCartonsPhotoCam','cartons_photo_cam','btnCartonsPhotoGal','cartons_photo_gal','cartons_photo_target','cartons_photo_label');
+      hookPair('btnCartonsBcCam','cartons_bc_cam','btnCartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label');
+      // Palettes Avant
+      hookPair('btnPaPhotoCam','pa_photo_cam','btnPaPhotoGal','pa_photo_gal','pa_photo_target','pa_photo_label');
+      hookPair('btnPaBcCam','pa_bc_cam','btnPaBcGal','pa_bc_gal','pa_barcode_file','pa_bc_label');
+      // Palettes Destination
+      hookPair('btnPdPhotoCam','pd_photo_cam','btnPdPhotoGal','pd_photo_gal','pd_photo_target','pd_photo_label');
+      hookPair('btnPdBcCam','pd_bc_cam','btnPdBcGal','pd_bc_gal','pd_barcode_file','pd_bc_label');
+
+      setTodayOnAllDates();
+    });
+  })();
+  </script>
+</body>
+</html>    <section id="tab-cartons" class="tab-pane active">
+      <h2>Contrôle — Cartons</h2>
+      <form class="qc-form" data-type="Cartons">
+        <div class="card grid-2">
+          <div>
+            <label>Date du contrôle</label>
+            <input type="date" name="date_jour" required>
+          </div>
+
+          <!-- Photo principale : Caméra + Galerie -> cible photo_principale -->
+          <div>
+            <label>Photo principale (carton)</label>
             <!-- entrées invisibles -->
             <input type="file" id="cartons_photo_cam" accept="image/*" capture="environment" style="display:none">
             <input type="file" id="cartons_photo_gal" accept="image/*" style="display:none">
