@@ -480,19 +480,33 @@ function doExportXlsx(){
     .finally(hideLoader);
 }
 function renderKpi(kpi){
+  // Nettoyage des anciens graphs
   CHARTS.forEach(ch=>{ try{ ch.destroy(); }catch{} });
-  CHARTS=[];
-  const wrap = qs('#kpiResults'); wrap.innerHTML='';
+  CHARTS = [];
 
-  const types = Object.keys(kpi||{});
-  if (!types.length){ wrap.innerHTML='<p>Aucune donnée.</p>'; return; }
+  const wrap = qs('#kpiResults');
+  wrap.innerHTML = '';
 
-  types.forEach(t=>{
-    const obj = kpi[t]||{};
-    const sum = obj.summary||{};
-    const perQ = obj.per_question||{};
-    const series = obj.by_date||[];
+  // On force l’affichage des 3 familles, même si le backend n’en renvoie qu’une partie
+  const TYPES = ['Cartons', 'Palettes_Avant', 'Palettes_Destination'];
 
+  // Helper pour objet KPI vide
+  const empty = ()=>({
+    summary: {
+      total_entries: 0, entries_with_any_KO: 0, entries_with_any_KO_pct: 0,
+      total_KO_items: 0, avg_KO_per_entry: 0
+    },
+    per_question: {},
+    by_date: []
+  });
+
+  TYPES.forEach(t=>{
+    const obj = (kpi && kpi[t]) ? kpi[t] : empty();
+    const sum = obj.summary || empty().summary;
+    const perQ = obj.per_question || {};
+    const series = Array.isArray(obj.by_date) ? obj.by_date : [];
+
+    // Carte synthèse
     const cardS = document.createElement('div');
     cardS.className='kpi-card card';
     cardS.innerHTML = `
@@ -505,12 +519,13 @@ function renderKpi(kpi){
       </div>`;
     wrap.appendChild(cardS);
 
-    const cardT = document.createElement('div');
-    cardT.className='kpi-card card';
+    // Tableau par question
     const rows = Object.keys(perQ).map(q=>{
-      const it = perQ[q]||{OK:0,KO:0,ko_pct:0};
+      const it = perQ[q] || {OK:0, KO:0, ko_pct:0};
       return `<tr><td>${q}</td><td>${it.OK}</td><td>${it.KO}</td><td>${it.ko_pct}%</td></tr>`;
     }).join('');
+    const cardT = document.createElement('div');
+    cardT.className='kpi-card card';
     cardT.innerHTML = `
       <h3>${t} — Par point (OK vs KO)</h3>
       <table class="kpi">
@@ -519,32 +534,77 @@ function renderKpi(kpi){
       </table>`;
     wrap.appendChild(cardT);
 
+    // Courbe par jour (avec animations désactivées)
     const labels = series.map(s=>s.date);
     const taux   = series.map(s=>s.taux_ko_pct);
     const cardL = document.createElement('div');
     cardL.className='kpi-card card';
-    cardL.innerHTML = `<h3>${t} — Taux KO % par jour</h3><canvas height="220"></canvas>`;
+    cardL.innerHTML = `<h3>${t} — Taux KO % par jour</h3><div class="chart-wrap"><canvas></canvas></div>`;
     wrap.appendChild(cardL);
 
-    if (typeof Chart!=='undefined') {
+    if (typeof Chart !== 'undefined') {
       const style = getComputedStyle(document.documentElement);
       const ctx = cardL.querySelector('canvas').getContext('2d');
-      CHARTS.push(new Chart(ctx,{
+
+      // IMPORTANT: animation désactivée pour éviter les boucles de reflow
+      const chart = new Chart(ctx,{
         type:'line',
-        data:{ labels, datasets:[{ label:'Taux KO %', data:taux, tension:0.2, fill:false }] },
+        data:{
+          labels,
+          datasets:[{
+            label:'Taux KO %',
+            data: taux,
+            tension:0.2,
+            fill:false,
+            pointRadius:3
+          }]
+        },
         options:{
-          responsive:true, maintainAspectRatio:false,
+          responsive:true,
+          maintainAspectRatio:false,     // on force la hauteur via CSS
+          animation:false,               // <- désactive animations
+          transitions: { active: { animation: { duration: 0 } } },
+          interaction:{ mode:'nearest', intersect:false },
           scales:{
-            x:{ ticks:{ color:style.getPropertyValue('--muted') }, grid:{ color:'rgba(127,127,127,0.2)' } },
-            y:{ ticks:{ color:style.getPropertyValue('--muted'), callback:v=>`${v}%` }, grid:{ color:'rgba(127,127,127,0.2)' }, beginAtZero:true }
+            x:{
+              ticks:{ color:style.getPropertyValue('--muted') },
+              grid:{ color:'rgba(127,127,127,0.2)' }
+            },
+            y:{
+              beginAtZero:true,
+              ticks:{
+                color:style.getPropertyValue('--muted'),
+                callback:v=>`${v}%`
+              },
+              grid:{ color:'rgba(127,127,127,0.2)' }
+            }
           },
-          plugins:{ legend:{ labels:{ color:style.getPropertyValue('--text') } } },
-          elements:{ point:{ radius:3 } }
+          plugins:{
+            legend:{ labels:{ color:style.getPropertyValue('--text') } },
+            tooltip:{ animation:false }
+          }
         }
-      }));
+      });
+      CHARTS.push(chart);
+    } else {
+      const warn = document.createElement('p');
+      warn.textContent = '⚠️ Chart.js non chargé.';
+      cardL.appendChild(warn);
     }
   });
+
+  // S’il n’y a vraiment aucune donnée nulle part, on l’indique
+  const totalEntries =
+    (kpi?.Cartons?.summary?.total_entries || 0) +
+    (kpi?.Palettes_Avant?.summary?.total_entries || 0) +
+    (kpi?.Palettes_Destination?.summary?.total_entries || 0);
+  if (totalEntries === 0) {
+    const info = document.createElement('p');
+    info.textContent = 'Aucune donnée pour la période choisie.';
+    wrap.appendChild(info);
+  }
 }
+
 
 /* ---------- Boot (anti double init) ---------- */
 document.addEventListener('DOMContentLoaded', ()=>{
