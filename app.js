@@ -193,6 +193,7 @@ async function resizeFileIfNeeded(file){
 }
 
 /* Redimensionne un dataURL → dataURL */
+/* Redimensionne un dataURL → dataURL avec limite de taille */
 async function resizeDataUrl(srcDataUrl, maxDim=1600, outMime='image/jpeg', quality=0.85){
   const img = await new Promise((resolve,reject)=>{
     const im = new Image();
@@ -205,6 +206,7 @@ async function resizeDataUrl(srcDataUrl, maxDim=1600, outMime='image/jpeg', qual
   const h0 = img.naturalHeight || img.height;
   if (!w0 || !h0) return { dataUrl: srcDataUrl, ext: guessExtFromMime(outMime) };
 
+  // Calcul des dimensions finales
   const ratio = w0 / h0;
   let w = w0, h = h0;
   if (Math.max(w0, h0) > maxDim) {
@@ -219,9 +221,24 @@ async function resizeDataUrl(srcDataUrl, maxDim=1600, outMime='image/jpeg', qual
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, w, h);
 
-  const dataUrl = c.toDataURL(outMime, quality);
+  // Compression adaptative
+  let q = quality;
+  const maxBytes = (window.CONFIG.MAX_FILE_SIZE_KB || 600) * 1024;
+  let dataUrl = c.toDataURL(outMime, q);
+  let size = Math.round((dataUrl.length * 3) / 4); // est. bytes base64
+  let tries = 0;
+
+  while (size > maxBytes && q > 0.2 && tries < 6) {
+    q -= 0.1;
+    dataUrl = c.toDataURL(outMime, q);
+    size = Math.round((dataUrl.length * 3) / 4);
+    tries++;
+  }
+
+  console.log(`→ Redimensionné à ${Math.round(size/1024)} Ko (qualité=${q.toFixed(2)})`);
   return { dataUrl, ext: guessExtFromMime(outMime) };
 }
+
 function guessExtFromMime(m){ return m==='image/png'?'png':'jpg'; }
 
 /* ---------- Boutons "Décoder" ---------- */
