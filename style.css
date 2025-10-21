@@ -1,4 +1,4 @@
-/* ========= Thème clair/sombre ========= */
+/* ===== Thème clair/sombre ===== */
 :root {
   --bg: #ffffff;
   --bg-elev: #f7f7f8;
@@ -11,7 +11,6 @@
   --ko: #e03c3c;
   --card: #ffffff;
 }
-
 :root[data-theme="dark"] {
   --bg: #0f1115;
   --bg-elev: #141821;
@@ -24,113 +23,56 @@
   --ko: #ff6262;
   --card: #11141b;
 }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+html,body {
+  margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
 }
 
-/* ========= Header ========= */
+/* ===== Header ===== */
 .app-header {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  display:grid; grid-template-columns:1fr auto auto; align-items:center;
+  gap:12px; padding:10px 14px; background:var(--bg); border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:10;
 }
+.brand .logo{height:36px;}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.tab{background:var(--bg-elev);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer;}
+.tab.active,.tab:hover{border-color:var(--primary);background:var(--primary);color:#fff;}
+.actions{display:flex;gap:8px;}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--bg-elev);color:var(--text);cursor:pointer;}
 
-.brand .logo { height: 36px; }
+/* ===== Layout ===== */
+.container{padding:16px;max-width:1100px;margin:0 auto;}
+.tab-pane{display:none;}           /* <<< cache toutes les sections par défaut */
+.tab-pane.active{display:block;}   /* <<< ne montre que l’onglet actif */
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.row{display:flex;align-items:center;flex-wrap:wrap;}
+.row.gap{gap:8px;}
+.file-label{margin-left:8px;color:var(--muted);}
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
+/* ===== Buttons ===== */
+.btn{background:var(--primary);color:#fff;border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;}
+.btn:hover{background:var(--primary-600);}
+.btn.secondary{background:var(--bg-elev);color:var(--text);border:1px solid var(--border);}
+
+/* ===== Forms ===== */
+input[type="text"],input[type="date"],input[type="number"],textarea{
+  width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--bg);color:var(--text);
 }
-.tab {
-  background: var(--bg-elev);
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tab.active, .tab:hover { border-color: var(--primary); background: var(--primary); color: #fff; }
+textarea{min-height:80px;resize:vertical;}
+.okko{display:flex;gap:12px;align-items:center;margin:8px 0 6px;}
+.ko-extra{display:none;border-left:3px solid var(--ko);padding-left:12px;margin:6px 0;} /* <<< caché au départ */
 
-.actions { display: flex; gap: 8px; }
-.icon-btn {
-  width: 36px; height: 36px;
-  border-radius: 10px; border: 1px solid var(--border);
-  background: var(--bg-elev); color: var(--text);
-  cursor: pointer;
-}
+/* ===== KPI ===== */
+.kpi-wrap{display:grid;gap:16px;}
+.kpi th,.kpi td{border-bottom:1px solid var(--border);padding:8px;}
 
-/* ========= Layout ========= */
-.container { padding: 16px; max-width: 1100px; margin: 0 auto; }
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
-
-.card, .kpi-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-/* ========= Buttons ========= */
-.btn {
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 700;
-}
-.btn:hover { background: var(--primary-600); }
-.btn.secondary {
-  background: var(--bg-elev);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-/* ========= Form Inputs ========= */
-input[type="text"], input[type="date"], input[type="number"], textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-}
-textarea { min-height: 80px; resize: vertical; }
-
-.okko { display: flex; gap: 12px; align-items: center; margin: 8px 0 6px; }
-.ko-extra { display: none; border-left: 3px solid var(--ko); padding-left: 12px; margin: 6px 0; }
-
-.kpi-wrap { display: grid; gap: 16px; }
-.kpi th, .kpi td { border-bottom: 1px solid var(--border); padding: 8px; }
-
-/* ========= Responsive ========= */
-@media (max-width: 720px) {
-  .app-header {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "brand actions"
-      "tabs tabs";
-  }
-  .tabs { grid-area: tabs; justify-content: space-around; }
-  .tab { flex: 1 1 auto; font-size: 14px; padding: 8px 6px; }
-  .brand .logo { height: 30px; }
-  .btn { width: 100%; }
+/* ===== Responsive ===== */
+@media(max-width:820px){
+  .grid-2{grid-template-columns:1fr;}
+  .tab{font-size:14px;padding:8px 10px;}
+  .brand .logo{height:30px;}
+  .btn{width:100%;}
 }
