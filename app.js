@@ -1,12 +1,31 @@
 /* =================================
-   Pelichet QC — app.js (COMPLET)
+   Pelichet QC — app.js (anti-dup)
    ================================= */
+
+/* ---------- Config globale sans redeclaration ---------- */
+(function ensureConfig(){
+  // Si un autre script a déjà créé CONFIG, on le réutilise
+  window.CONFIG = window.CONFIG || {};
+  if (typeof window.CONFIG.WEBAPP_BASE_URL !== 'string') {
+    window.CONFIG.WEBAPP_BASE_URL = '';
+  }
+  // Charger config.json une seule fois (si pas déjà fusionné)
+  if (!window.CONFIG.__loadedFromJson__) {
+    fetch('config.json')
+      .then(r=>r.ok?r.json():{})
+      .then(c=>{
+        Object.assign(window.CONFIG, c || {});
+        window.CONFIG.__loadedFromJson__ = true;
+      })
+      .catch(()=>{});
+  }
+})();
 
 /* ---------- Helpers DOM ---------- */
 function qs(s, r=document){ return r.querySelector(s); }
 function qsa(s, r=document){ return Array.from(r.querySelectorAll(s)); }
 
-/* ---------- Onglets (uniquement dans le header) ---------- */
+/* ---------- Onglets ---------- */
 function initTabs(){
   const headerTabs = document.querySelectorAll('.app-header .tab');
   const panes = document.querySelectorAll('.tab-pane');
@@ -52,6 +71,7 @@ function initServiceWorker(){
 
 /* ---------- ZXing + BarcodeDetector (décodage image) ---------- */
 async function decodeFileToBarcode(file){
+  // 1) Natif (si dispo)
   if ('BarcodeDetector' in window) {
     try{
       const bd = new window.BarcodeDetector({ formats: ['ean_13','code_128','code_39'] });
@@ -70,7 +90,7 @@ async function decodeFileToBarcode(file){
       }
     } catch(_){}
   }
-  // Fallback ZXing
+  // 2) Fallback ZXing
   const img = await fileToImage(file);
   const png = await imageToPngDataUrl(img, 800);
   const el  = await dataUrlToImage(png);
@@ -178,14 +198,12 @@ function initKoBlocks(){
       box.style.display = (checked && checked.value === 'KO') ? 'block' : 'none';
     });
   }
-  // écoute sur chaque radio
   qsa('.okko input[type=radio]').forEach(r=>{
     r.addEventListener('change', ()=>{
       const container = r.closest('form') || document;
       refreshFor(container);
     });
   });
-  // état initial pour chaque formulaire
   qsa('form.qc-form').forEach(f=>refreshFor(f));
 }
 
@@ -212,9 +230,6 @@ function hookCameraGalleryPair(btnCamId, camId, btnGalId, galId, targetId, label
 }
 
 /* ---------- Envoi formulaires -> Apps Script ---------- */
-let CONFIG = { WEBAPP_BASE_URL: '' };
-fetch('config.json').then(r=>r.ok?r.json():{}).then(c=>Object.assign(CONFIG,c)).catch(()=>{});
-
 function initForms(){
   qsa('.qc-form').forEach(form=>{
     form.addEventListener('submit', async (ev)=>{
@@ -261,21 +276,21 @@ function initForms(){
       const payload = { date_jour: date, type, code_barres: codeBarres, photo_principale: photoMain, answers };
 
       try{
-        const url = CONFIG.WEBAPP_BASE_URL || window.WEBAPP_BASE_URL || '';
-        if (!url) { alert('URL backend non configurée (config.json → WEBAPP_BASE_URL).'); return; }
+        const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
+        if (!baseUrl) { alert('URL backend non configurée (config.json → WEBAPP_BASE_URL).'); return; }
 
         const fd = new FormData();
         fd.append('route', 'qc');
         fd.append('type', type);
         fd.append('payload', JSON.stringify(payload));
 
-        const r = await fetch(url, { method: 'POST', body: fd });
+        const r = await fetch(baseUrl, { method: 'POST', body: fd });
         const js = await r.json();
         if (!js.ok) throw new Error(js.error || 'Erreur serveur');
 
         if (result) result.textContent = '✅ Enregistrement réussi';
         form.reset();
-        initKoBlocks(); // réapplique l’état fermé par défaut
+        initKoBlocks();
       }catch(err){
         if (result) result.textContent = '❌ ' + String(err.message || err);
       }
@@ -295,7 +310,10 @@ async function loadAndRenderKpi(){
   const from = qs('#kpi_from').value;
   const to   = qs('#kpi_to').value;
 
-  const url = new URL(CONFIG.WEBAPP_BASE_URL);
+  const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
+  if (!baseUrl) { alert('URL backend non configurée.'); return; }
+
+  const url = new URL(baseUrl);
   url.searchParams.set('route','kpi');
   if (from) url.searchParams.set('from', from);
   if (to)   url.searchParams.set('to', to);
@@ -307,7 +325,9 @@ async function loadAndRenderKpi(){
 }
 function doExportXlsx(){
   const from = qs('#kpi_from').value, to = qs('#kpi_to').value;
-  const url = new URL(CONFIG.WEBAPP_BASE_URL);
+  const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
+  if (!baseUrl) { alert('URL backend non configurée.'); return; }
+  const url = new URL(baseUrl);
   url.searchParams.set('route','export');
   if (from) url.searchParams.set('from', from);
   if (to)   url.searchParams.set('to', to);
@@ -365,6 +385,7 @@ function renderKpi(kpi){
     wrap.appendChild(cardL);
 
     if (typeof Chart!=='undefined') {
+      const style = getComputedStyle(document.documentElement);
       const ctx = cardL.querySelector('canvas').getContext('2d');
       CHARTS.push(new Chart(ctx,{
         type:'line',
@@ -372,10 +393,10 @@ function renderKpi(kpi){
         options:{
           responsive:true, maintainAspectRatio:false,
           scales:{
-            x:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted') }, grid:{ color:'rgba(127,127,127,0.2)' } },
-            y:{ ticks:{ color:getComputedStyle(document.documentElement).getPropertyValue('--muted'), callback:v=>`${v}%` }, grid:{ color:'rgba(127,127,127,0.2)' }, beginAtZero:true }
+            x:{ ticks:{ color:style.getPropertyValue('--muted') }, grid:{ color:'rgba(127,127,127,0.2)' } },
+            y:{ ticks:{ color:style.getPropertyValue('--muted'), callback:v=>`${v}%` }, grid:{ color:'rgba(127,127,127,0.2)' }, beginAtZero:true }
           },
-          plugins:{ legend:{ labels:{ color:getComputedStyle(document.documentElement).getPropertyValue('--text') } } },
+          plugins:{ legend:{ labels:{ color:style.getPropertyValue('--text') } } },
           elements:{ point:{ radius:3 } }
         }
       }));
@@ -383,23 +404,26 @@ function renderKpi(kpi){
   });
 }
 
-/* ---------- Boot ---------- */
+/* ---------- Boot (avec garde anti-double init) ---------- */
 document.addEventListener('DOMContentLoaded', ()=>{
+  if (window.__QC_INIT__) return;
+  window.__QC_INIT__ = true;
+
   initTabs();
   initThemeToggle();
   initDecodeButtons();
-  initKoBlocks();          // <- gère l’état initial des blocs KO
+  initKoBlocks();
   initForms();
   initKpi();
   initServiceWorker();
 
-  // Hooks Caméra/Galerie -> cibles (cohérents avec l’index.html)
+  // Hooks Caméra/Galerie -> cibles
   hookCameraGalleryPair('btnCartonsPhotoCam','cartons_photo_cam','btnCartonsPhotoGal','cartons_photo_gal','cartons_photo_target','cartons_photo_label');
-  hookCameraGalleryPair('btnCartonsBcCam','cartons_bc_cam','btnCartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label');
+  hookCameraGalleryPair('btnCartonsBcCam','cartons_bc_cam','cartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label'); // ajuste si id différent
 
   hookCameraGalleryPair('btnPaPhotoCam','pa_photo_cam','btnPaPhotoGal','pa_photo_gal','pa_photo_target','pa_photo_label');
-  hookCameraGalleryPair('btnPaBcCam','pa_bc_cam','btnPaBcGal','pa_bc_gal','pa_barcode_file','pa_bc_label');
+  hookCameraGalleryPair('btnPaBcCam','pa_bc_cam','paBcGal','pa_bc_gal','pa_barcode_file','pa_bc_label'); // ajuste si id différent
 
   hookCameraGalleryPair('btnPdPhotoCam','pd_photo_cam','btnPdPhotoGal','pd_photo_gal','pd_photo_target','pd_photo_label');
-  hookCameraGalleryPair('btnPdBcCam','pd_bc_cam','btnPdBcGal','pd_bc_gal','pd_barcode_file','pd_bc_label');
+  hookCameraGalleryPair('btnPdBcCam','pd_bc_cam','pdBcGal','pd_bc_gal','pd_barcode_file','pd_bc_label'); // ajuste si id différent
 });
