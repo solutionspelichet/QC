@@ -1,5 +1,5 @@
 {
-  "WEBAPP_BASE_URL": "https://script.google.com/macros/s/AKfycbztRuXNCGGHlXG3BiSRPXJdo7OThM1kfw1BBdP1VXxRgHPa9QGpWDCz0HIeBCDWN3Uq/exec",
+  "WEBAPP_BASE_URL": "https://script.google.com/macros/s/AKfycby9PwoV80_WPVpHOijutIWDuGTTY9bfjfsFTlaSEqmXAFvLlsExm9zW6DJ7iHKCE9UV/exec",
     "RESIZE_ENABLED": true,
   "MAX_IMAGE_DIM": 1600,
   "OUTPUT_MIME": "image/jpeg",
