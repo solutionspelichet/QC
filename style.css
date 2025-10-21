@@ -206,3 +206,20 @@ table.kpi {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+/* ===== Loader overlay ===== */
+.loader-overlay{
+  position: fixed; inset: 0; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--bg) 70%, black 30%);
+  backdrop-filter: blur(2px);
+  opacity: 0; visibility: hidden; transition: opacity .15s ease;
+  z-index: 9999;
+}
+.loader-overlay.visible{ opacity: 1; visibility: visible; }
+.loader-spinner{
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 4px solid color-mix(in oklab, var(--primary) 30%, transparent 70%);
+  border-top-color: var(--primary);
+  animation: spin 1s linear infinite; margin-bottom: 10px;
+}
+.loader-text{ color: var(--text); font-weight: 700; text-shadow: 0 1px 0 rgba(0,0,0,.2); }
+@keyframes spin { to { transform: rotate(360deg); } }
