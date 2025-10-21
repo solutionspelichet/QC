@@ -1,15 +1,17 @@
-/* =================================
-   Pelichet QC — app.js (anti-dup)
-   ================================= */
+/* ================================
+   Pelichet QC — app.js (resize + loader)
+   ================================ */
 
-/* ---------- Config globale sans redeclaration ---------- */
+/* ---------- Config globale sans redéclaration ---------- */
 (function ensureConfig(){
-  // Si un autre script a déjà créé CONFIG, on le réutilise
   window.CONFIG = window.CONFIG || {};
-  if (typeof window.CONFIG.WEBAPP_BASE_URL !== 'string') {
-    window.CONFIG.WEBAPP_BASE_URL = '';
-  }
-  // Charger config.json une seule fois (si pas déjà fusionné)
+  if (typeof window.CONFIG.WEBAPP_BASE_URL !== 'string') window.CONFIG.WEBAPP_BASE_URL = '';
+  // Options de redimensionnement (désactivé par défaut)
+  if (typeof window.CONFIG.RESIZE_ENABLED !== 'boolean') window.CONFIG.RESIZE_ENABLED = false;
+  if (typeof window.CONFIG.MAX_IMAGE_DIM !== 'number') window.CONFIG.MAX_IMAGE_DIM = 1600; // plus grand côté
+  if (typeof window.CONFIG.OUTPUT_MIME !== 'string') window.CONFIG.OUTPUT_MIME = 'image/jpeg'; // 'image/jpeg' | 'image/png'
+  if (typeof window.CONFIG.QUALITY !== 'number') window.CONFIG.QUALITY = 0.85; // JPEG: 0..1
+
   if (!window.CONFIG.__loadedFromJson__) {
     fetch('config.json')
       .then(r=>r.ok?r.json():{})
@@ -24,6 +26,19 @@
 /* ---------- Helpers DOM ---------- */
 function qs(s, r=document){ return r.querySelector(s); }
 function qsa(s, r=document){ return Array.from(r.querySelectorAll(s)); }
+
+/* ---------- Loader (overlay) ---------- */
+function showLoader(text='Envoi en cours…'){
+  const el = qs('#appLoader');
+  if (!el) return;
+  qs('.loader-text', el).textContent = text;
+  el.classList.add('visible');
+}
+function hideLoader(){
+  const el = qs('#appLoader');
+  if (!el) return;
+  el.classList.remove('visible');
+}
 
 /* ---------- Onglets ---------- */
 function initTabs(){
@@ -42,7 +57,7 @@ function initTabs(){
   });
 }
 
-/* ---------- Thème clair/sombre ---------- */
+/* ---------- Thème ---------- */
 function initThemeToggle(){
   const toggle = document.getElementById('toggleTheme');
   if (!toggle) return;
@@ -69,15 +84,14 @@ function initServiceWorker(){
   }
 }
 
-/* ---------- ZXing + BarcodeDetector (décodage image) ---------- */
+/* ---------- Décodage code-barres (photo) ---------- */
 async function decodeFileToBarcode(file){
-  // 1) Natif (si dispo)
+  // 1) Natif
   if ('BarcodeDetector' in window) {
     try{
       const bd = new window.BarcodeDetector({ formats: ['ean_13','code_128','code_39'] });
       const img = await fileToImage(file);
-      const png = await imageToPngDataUrl(img, 800);
-      const el  = await dataUrlToImage(png);
+      const el  = await imageElementScaled(img, 800);
       const c = document.createElement('canvas');
       c.width  = el.naturalWidth || el.width;
       c.height = el.naturalHeight || el.height;
@@ -90,10 +104,9 @@ async function decodeFileToBarcode(file){
       }
     } catch(_){}
   }
-  // 2) Fallback ZXing
+  // 2) ZXing
   const img = await fileToImage(file);
-  const png = await imageToPngDataUrl(img, 800);
-  const el  = await dataUrlToImage(png);
+  const el  = await imageElementScaled(img, 800);
   const reader = new ZXingBrowser.BrowserMultiFormatReader();
   const hints = new Map();
   hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, [
@@ -110,6 +123,7 @@ async function decodeFileToBarcode(file){
   }
 }
 
+/* ---------- Helpers Image / Resize ---------- */
 function fileToImage(file){
   return new Promise((resolve,reject)=>{
     const img = new Image();
@@ -121,15 +135,7 @@ function fileToImage(file){
     fr.readAsDataURL(file);
   });
 }
-function dataUrlToImage(dataUrl){
-  return new Promise((resolve,reject)=>{
-    const img = new Image();
-    img.onload = ()=> resolve(img);
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-}
-function imageToPngDataUrl(img, minWidth=800){
+function imageElementScaled(img, minWidth=800){
   return new Promise(resolve=>{
     const baseW = img.naturalWidth || img.width || minWidth;
     const baseH = img.naturalHeight || img.height || minWidth;
@@ -140,9 +146,62 @@ function imageToPngDataUrl(img, minWidth=800){
     const ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, w, h);
-    resolve(c.toDataURL('image/png'));
+    const out = new Image();
+    out.onload = ()=> resolve(out);
+    out.src = c.toDataURL('image/png');
   });
 }
+
+/* Redimensionner un File → dataURL + ext (selon CONFIG) */
+async function resizeFileIfNeeded(file){
+  // Si désactivé: renvoie le dataURL d’origine (pas de compression intentionnelle)
+  const dataUrl = await new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>resolve(fr.result);
+    fr.onerror=reject;
+    fr.readAsDataURL(file);
+  });
+
+  if (!window.CONFIG.RESIZE_ENABLED) {
+    const ext = (file.name.split('.').pop()||'').toLowerCase();
+    return { dataUrl, ext };
+  }
+
+  // Sinon: resize côté client
+  return await resizeDataUrl(dataUrl, window.CONFIG.MAX_IMAGE_DIM, window.CONFIG.OUTPUT_MIME, window.CONFIG.QUALITY);
+}
+
+/* Redimensionne un dataURL → dataURL */
+async function resizeDataUrl(srcDataUrl, maxDim=1600, outMime='image/jpeg', quality=0.85){
+  const img = await new Promise((resolve,reject)=>{
+    const im = new Image();
+    im.onload = ()=> resolve(im);
+    im.onerror = reject;
+    im.src = srcDataUrl;
+  });
+
+  const w0 = img.naturalWidth || img.width;
+  const h0 = img.naturalHeight || img.height;
+  if (!w0 || !h0) return { dataUrl: srcDataUrl, ext: guessExtFromMime(outMime) };
+
+  const ratio = w0 / h0;
+  let w = w0, h = h0;
+  if (Math.max(w0, h0) > maxDim) {
+    if (w0 >= h0) { w = maxDim; h = Math.round(maxDim / ratio); }
+    else { h = maxDim; w = Math.round(maxDim * ratio); }
+  }
+
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const dataUrl = c.toDataURL(outMime, quality);
+  return { dataUrl, ext: guessExtFromMime(outMime) };
+}
+function guessExtFromMime(m){ return m==='image/png'?'png':'jpg'; }
 
 /* ---------- Boutons "Décoder" ---------- */
 function initDecodeButtons(){
@@ -160,36 +219,7 @@ function initDecodeButtons(){
   });
 }
 
-/* ---------- Helpers fichiers (1 ou plusieurs) ---------- */
-async function fileToDataUrlWithExt(input){
-  if (!input || !input.files || !input.files[0]) return null;
-  const file = input.files[0];
-  const ext  = (file.name.split('.').pop()||'').toLowerCase();
-  const dataUrl = await new Promise((resolve,reject)=>{
-    const fr=new FileReader();
-    fr.onload=()=>resolve(fr.result);
-    fr.onerror=reject;
-    fr.readAsDataURL(file);
-  });
-  return { dataUrl, ext };
-}
-async function filesToDataUrlsWithExt(input){
-  if (!input || !input.files || input.files.length===0) return [];
-  const out = [];
-  for (const file of input.files) {
-    const ext = (file.name.split('.').pop()||'').toLowerCase();
-    const dataUrl = await new Promise((resolve,reject)=>{
-      const fr = new FileReader();
-      fr.onload = ()=> resolve(fr.result);
-      fr.onerror = reject;
-      fr.readAsDataURL(file);
-    });
-    out.push({ dataUrl, ext });
-  }
-  return out;
-}
-
-/* ---------- KO: affichage/masquage + état initial ---------- */
+/* ---------- KO: affichage/masquage + init ---------- */
 function initKoBlocks(){
   function refreshFor(container){
     qsa('.ko-extra', container).forEach(box=>{
@@ -241,43 +271,64 @@ function initForms(){
       const codeBarres = qs('input[name="code_barres"]', form).value.trim();
       if (!date || !codeBarres) { alert('Date et code-barres requis.'); return; }
 
-      const photoMain = await fileToDataUrlWithExt(qs('input[name="photo_principale"]', form));
-
-      const questionsMap = {
-        Cartons: ['callage_papier','intercalaires_livres','ordre_colonnes','scotch','depoussierage'],
-        Palettes_Avant: ['cartons_etat','intercalaires_cartons','ordre_cartons','cerclage','stabilite'],
-        Palettes_Destination: ['cartons_etat','cerclage']
-      };
-      const questions = questionsMap[type] || [];
-
-      const answers = [];
-      for (const q of questions) {
-        const val = (qs(`input[name="${q}"]:checked`, form) || {}).value;
-        if (!val) { alert('Veuillez répondre à toutes les questions.'); return; }
-
-        let photo = null;
-        let photos = [];
-        let commentaire = '';
-
-        if (val === 'KO') {
-          const fileInput = qs(`input[data-photofor="${q}"]`, form);
-          const ta = qs(`textarea[data-commentfor="${q}"]`, form);
-          commentaire = (ta && ta.value.trim()) || '';
-          photos = await filesToDataUrlsWithExt(fileInput);
-          if (photos.length > 0) photo = photos[0];
-          if ((!photos || photos.length===0) || !commentaire) {
-            alert(`Pour "${q}", en KO il faut au moins 1 photo + un commentaire.`);
-            return;
-          }
-        }
-        answers.push({ field: q, value: val, photo, photos, commentaire });
-      }
-
-      const payload = { date_jour: date, type, code_barres: codeBarres, photo_principale: photoMain, answers };
+      // Loader
+      showLoader('Envoi en cours…');
 
       try{
+        // Photo principale
+        const photoInput = qs('input[name="photo_principale"]', form);
+        let photoMain = null;
+        if (photoInput && photoInput.files && photoInput.files[0]) {
+          photoMain = await resizeFileIfNeeded(photoInput.files[0]);
+        }
+
+        // Questions
+        const questionsMap = {
+          Cartons: ['callage_papier','intercalaires_livres','ordre_colonnes','scotch','depoussierage'],
+          Palettes_Avant: ['cartons_etat','intercalaires_cartons','ordre_cartons','cerclage','stabilite'],
+          Palettes_Destination: ['cartons_etat','cerclage']
+        };
+        const questions = questionsMap[type] || [];
+
+        const answers = [];
+        for (const q of questions) {
+          const val = (qs(`input[name="${q}"]:checked`, form) || {}).value;
+          if (!val) { alert('Veuillez répondre à toutes les questions.'); hideLoader(); return; }
+
+          let photo = null;      // compat backend (1ère photo)
+          let photos = [];       // nouvelles multiples
+          let commentaire = '';
+
+          if (val === 'KO') {
+            const fileInput = qs(`input[data-photofor="${q}"]`, form);
+            const ta = qs(`textarea[data-commentfor="${q}"]`, form);
+            commentaire = (ta && ta.value.trim()) || '';
+
+            if (!fileInput || !fileInput.files || fileInput.files.length===0 || !commentaire) {
+              alert(`Pour "${q}", en KO il faut au moins 1 photo + un commentaire.`);
+              hideLoader();
+              return;
+            }
+            // Redimensionner toutes les photos KO si activé
+            for (const f of fileInput.files) {
+              const r = await resizeFileIfNeeded(f);
+              photos.push(r);
+            }
+            if (photos.length>0) photo = photos[0];
+          }
+          answers.push({ field: q, value: val, photo, photos, commentaire });
+        }
+
+        const payload = {
+          date_jour: date,
+          type,
+          code_barres: codeBarres,
+          photo_principale: photoMain,
+          answers
+        };
+
         const baseUrl = window.CONFIG && window.CONFIG.WEBAPP_BASE_URL || '';
-        if (!baseUrl) { alert('URL backend non configurée (config.json → WEBAPP_BASE_URL).'); return; }
+        if (!baseUrl) { alert('URL backend non configurée (config.json → WEBAPP_BASE_URL).'); hideLoader(); return; }
 
         const fd = new FormData();
         fd.append('route', 'qc');
@@ -293,14 +344,14 @@ function initForms(){
         initKoBlocks();
       }catch(err){
         if (result) result.textContent = '❌ ' + String(err.message || err);
+      }finally{
+        hideLoader();
       }
     });
   });
 }
 
-/* =========================
-   KPI — synthèse + tableau + courbe
-   ========================= */
+/* ---------- KPI / Export (loader intégré) ---------- */
 let CHARTS = [];
 function initKpi(){
   const btnKpi = qs('#btnKpi'); if (btnKpi) btnKpi.addEventListener('click', loadAndRenderKpi);
@@ -319,9 +370,16 @@ async function loadAndRenderKpi(){
   if (to)   url.searchParams.set('to', to);
 
   const box = qs('#kpiResults'); if (box) box.textContent = 'Chargement KPI…';
-  const js = await fetch(url).then(r=>r.json()).catch(()=>({ok:false}));
-  if (!js.ok) { if (box) box.textContent='Erreur KPI'; return; }
-  renderKpi(js.kpi);
+  showLoader('Chargement KPI…');
+  try{
+    const js = await fetch(url).then(r=>r.json());
+    if (!js.ok) { box.textContent='Erreur KPI'; return; }
+    renderKpi(js.kpi);
+  }catch{
+    box.textContent='Erreur KPI';
+  }finally{
+    hideLoader();
+  }
 }
 function doExportXlsx(){
   const from = qs('#kpi_from').value, to = qs('#kpi_to').value;
@@ -331,11 +389,14 @@ function doExportXlsx(){
   url.searchParams.set('route','export');
   if (from) url.searchParams.set('from', from);
   if (to)   url.searchParams.set('to', to);
+
+  showLoader('Préparation de l’export…');
   fetch(url).then(r=>r.json()).then(js=>{
     if (!js.ok) { alert('Export échoué'); return; }
     const href = js.directDownloadUrl || js.webViewLink;
     window.open(href, '_blank');
-  }).catch(()=> alert('Export échoué'));
+  }).catch(()=> alert('Export échoué'))
+    .finally(hideLoader);
 }
 function renderKpi(kpi){
   CHARTS.forEach(ch=>{ try{ ch.destroy(); }catch{} });
@@ -404,7 +465,7 @@ function renderKpi(kpi){
   });
 }
 
-/* ---------- Boot (avec garde anti-double init) ---------- */
+/* ---------- Boot (anti double init) ---------- */
 document.addEventListener('DOMContentLoaded', ()=>{
   if (window.__QC_INIT__) return;
   window.__QC_INIT__ = true;
@@ -419,11 +480,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Hooks Caméra/Galerie -> cibles
   hookCameraGalleryPair('btnCartonsPhotoCam','cartons_photo_cam','btnCartonsPhotoGal','cartons_photo_gal','cartons_photo_target','cartons_photo_label');
-  hookCameraGalleryPair('btnCartonsBcCam','cartons_bc_cam','cartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label'); // ajuste si id différent
+  hookCameraGalleryPair('btnCartonsBcCam','cartons_bc_cam','btnCartonsBcGal','cartons_bc_gal','cartons_barcode_file','cartons_bc_label');
 
   hookCameraGalleryPair('btnPaPhotoCam','pa_photo_cam','btnPaPhotoGal','pa_photo_gal','pa_photo_target','pa_photo_label');
-  hookCameraGalleryPair('btnPaBcCam','pa_bc_cam','paBcGal','pa_bc_gal','pa_barcode_file','pa_bc_label'); // ajuste si id différent
+  hookCameraGalleryPair('btnPaBcCam','pa_bc_cam','btnPaBcGal','pa_bc_gal','pa_barcode_file','pa_bc_label');
 
   hookCameraGalleryPair('btnPdPhotoCam','pd_photo_cam','btnPdPhotoGal','pd_photo_gal','pd_photo_target','pd_photo_label');
-  hookCameraGalleryPair('btnPdBcCam','pd_bc_cam','pdBcGal','pd_bc_gal','pd_barcode_file','pd_bc_label'); // ajuste si id différent
+  hookCameraGalleryPair('btnPdBcCam','pd_bc_cam','btnPdBcGal','pd_bc_gal','pd_barcode_file','pd_bc_label');
 });
